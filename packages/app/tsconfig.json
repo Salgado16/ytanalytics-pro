@@ -21,8 +21,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@youtube-analytics/shared/*": ["../shared/src/*"],
-      "@ytanalytics-pro/shared": ["../shared/src/index"],
-      "@ytanalytics-pro/shared/*": ["../shared/src/*"]
+      "@ytanalytics-pro/shared": ["./src/shared/index"],
+      "@ytanalytics-pro/shared/*": ["./src/shared/*"]
     },
     "baseUrl": "."
   },
