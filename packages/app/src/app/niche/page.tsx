@@ -23,6 +23,13 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  X,
+  Loader2,
+  Sparkles,
+  ThumbsUp,
+  MessageSquare,
+  Calendar,
+  TrendingDown,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
@@ -51,8 +58,29 @@ export default function NichePage() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [expandedChannel, setExpandedChannel] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState<boolean>(false);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [analysisChannel, setAnalysisChannel] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const currentChannels = activeTab === "trending" ? trendingChannels : activeTab === "rising" ? risingChannels : newChannels;
+
+  const handleAnalyze = async (channel: any) => {
+    setAnalysisChannel(channel);
+    setAnalysis(null);
+    setAnalysisError(null);
+    setAnalyzing(true);
+    try {
+      const result = await analyzeChannel(channel.channelId);
+      if (!result || result.error) {
+        setAnalysisError(result?.error || "Falha ao analisar o canal. Tente novamente.");
+      } else {
+        setAnalysis(result);
+      }
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -151,7 +179,7 @@ export default function NichePage() {
                   channel={channel}
                   expanded={expandedChannel === channel.channelId}
                   onToggle={() => setExpandedChannel(expandedChannel === channel.channelId ? null : channel.channelId)}
-                  onAnalyze={() => analyzeChannel(channel.channelId)}
+                  onAnalyze={() => handleAnalyze(channel)}
                 />
               ))}
             </div>
@@ -173,7 +201,7 @@ export default function NichePage() {
               channel={channel}
               expanded={expandedChannel === channel.channelId}
               onToggle={() => setExpandedChannel(expandedChannel === channel.channelId ? null : channel.channelId)}
-              onAnalyze={() => analyzeChannel(channel.channelId)}
+              onAnalyze={() => handleAnalyze(channel)}
             />
           ))}
         </div>
@@ -187,6 +215,39 @@ export default function NichePage() {
             <p className="text-muted-foreground">Ajuste os filtros ou busque por um nicho específico</p>
           </CardContent>
         </Card>
+      )}
+
+      {(analysis || analysisError || analyzing) && analysisChannel && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4">
+          <Card className="w-full max-w-3xl my-8">
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div className="min-w-0">
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  Análise de Canal
+                </CardTitle>
+                <CardDescription className="truncate">{analysisChannel.title}</CardDescription>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => { setAnalysis(null); setAnalysisError(null); setAnalysisChannel(null); setAnalyzing(false); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {analyzing && (
+                <div className="flex items-center justify-center py-16">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-3" />
+                    <p className="text-muted-foreground">Analisando canal no YouTube...</p>
+                  </div>
+                </div>
+              )}
+              {analysisError && !analyzing && (
+                <p className="text-sm text-red-600 dark:text-red-400">{analysisError}</p>
+              )}
+              {analysis && !analyzing && <AnalysisPanel analysis={analysis} />}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
@@ -228,11 +289,11 @@ function ChannelCard({ channel, expanded, onToggle, onAnalyze }: any) {
             <p className="text-xs text-muted-foreground">Views Totais</p>
           </div>
           <div>
-            <p className="text-xl font-bold {getColorForScore(channel.viralScore)}">{channel.viralScore.toFixed(0)}</p>
+            <p className={`text-xl font-bold ${getColorForScore(channel.viralScore)}`}>{channel.viralScore.toFixed(0)}</p>
             <p className="text-xs text-muted-foreground">Score Viral</p>
           </div>
           <div>
-            <p className="text-xl font-bold {getColorForScore(channel.growthRate)}">{channel.growthRate.toFixed(1)}%</p>
+            <p className={`text-xl font-bold ${getColorForScore(channel.growthRate)}`}>{channel.growthRate.toFixed(1)}%</p>
             <p className="text-xs text-muted-foreground">Crescimento</p>
           </div>
         </div>
@@ -287,6 +348,135 @@ function ChannelCard({ channel, expanded, onToggle, onAnalyze }: any) {
         </div>
       )}
     </Card>
+  );
+}
+
+function AnalysisPanel({ analysis }: { analysis: any }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Metric label="Views Totais" value={analysis.overview?.totalViews} />
+        <Metric label="Inscritos" value={analysis.overview?.totalSubscribers} />
+        <Metric label="Vídeos" value={analysis.overview?.totalVideos} />
+        <Metric label="Média Views/Vídeo" value={Math.round(analysis.overview?.avgViewsPerVideo || 0)} />
+      </div>
+
+      {analysis.dataSource && (
+        <p className="text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">{analysis.dataSource}</p>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <PerformanceMetric label="Score Viral" value={analysis.performance?.viralScore} color={getColorForScore(analysis.performance?.viralScore || 0)} suffix="/1000" />
+        <PerformanceMetric label="Crescimento" value={analysis.performance?.growthRate} suffix="%" />
+        <PerformanceMetric label="Engajamento" value={analysis.performance?.engagementRate} suffix="%" />
+        <PerformanceMetric label="Freq. Uploads" value={analysis.overview?.uploadFrequency} suffix="/semana" />
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-2">Temas Principais</h4>
+        <div className="flex flex-wrap gap-2">
+          {analysis.contentStrategy?.mainTopics?.slice(0, 6).map((topic: string, i: number) => (
+            <Badge key={i} variant="outline">{topic}</Badge>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-2">Tipos de Conteúdo</h4>
+        <div className="space-y-2">
+          {analysis.contentStrategy?.videoTypes?.map((vt: any, i: number) => (
+            <div key={i} className="flex items-center justify-between text-sm bg-muted/40 rounded px-3 py-2">
+              <span>{vt.type}</span>
+              <span className="text-muted-foreground">
+                {vt.count} vídeos · {formatNumber(Math.round(vt.avgViews))} views/video
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <h4 className="font-semibold mb-2">Cronograma / Padrão</h4>
+          <p className="text-sm text-muted-foreground mb-1 flex items-center gap-2">
+            <Calendar className="h-4 w-4" /> {analysis.contentStrategy?.uploadSchedule}
+          </p>
+          <p className="text-sm text-muted-foreground flex items-center gap-2">
+            <MessageSquare className="h-4 w-4" /> {analysis.contentStrategy?.titlePattern}
+          </p>
+        </div>
+        <div>
+          <h4 className="font-semibold mb-2">Audiência</h4>
+          <p className="text-sm text-muted-foreground mb-1">Países: {analysis.audience?.topCountries?.[0]}</p>
+          <div className="flex flex-wrap gap-1">
+            {analysis.audience?.interests?.slice(0, 6).map((i: string, idx: number) => (
+              <Badge key={idx} variant="outline" className="text-xs">{i}</Badge>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-2">Monetização</h4>
+        <p className="text-sm text-muted-foreground">{analysis.monetization?.estimatedMonthlyRevenue}</p>
+        <div className="mt-3 space-y-1.5">
+          {analysis.monetization?.revenueSources?.map((rs: any, i: number) => (
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <span className="w-32">{rs.source}</span>
+              <div className="h-2 flex-1 rounded bg-muted overflow-hidden">
+                <div className="h-full rounded bg-primary" style={{ width: `${rs.percentage}%` }} />
+              </div>
+              <span className="text-muted-foreground w-10 text-right">{rs.percentage}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h4 className="font-semibold mb-2">Recomendações</h4>
+        <ul className="space-y-2">
+          {analysis.recommendations?.map((r: string, i: number) => (
+            <li key={i} className="text-sm bg-muted/40 rounded px-3 py-2 border-l-2 border-primary">
+              {r}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {analysis.competitors?.length > 0 && (
+        <div>
+          <h4 className="font-semibold mb-2">Concorrentes de Tema</h4>
+          <div className="space-y-2">
+            {analysis.competitors.map((c: any, i: number) => (
+              <div key={i} className="flex items-center justify-between text-sm bg-muted/40 rounded px-3 py-2">
+                <span className="font-medium">{c.name}</span>
+                <span className="text-muted-foreground">
+                  {formatNumber(c.subscribers)} subs · {c.similarity}% similar
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-muted/40 rounded-lg p-3 text-center">
+      <p className="text-xl font-bold">{formatNumber(value)}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function PerformanceMetric({ label, value, suffix = "", color = "" }: { label: string; value: number; suffix?: string; color?: string }) {
+  return (
+    <div className="bg-muted/40 rounded-lg p-3 text-center">
+      <p className={`text-xl font-bold ${color}`}>{value}{suffix}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
   );
 }
 

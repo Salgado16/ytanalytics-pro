@@ -9,15 +9,16 @@ export class YouTubeApiClient {
   private analyticsClient: AxiosInstance;
   private accessToken: string;
 
-  constructor(accessToken: string) {
-    this.accessToken = accessToken;
+  constructor(accessToken?: string, apiKey?: string) {
+    this.accessToken = accessToken || "";
     this.client = axios.create({
       baseURL: YOUTUBE_API_BASE,
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: accessToken && !apiKey ? { Authorization: `Bearer ${accessToken}` } : {},
+      params: apiKey ? { key: apiKey } : undefined,
     });
     this.analyticsClient = axios.create({
       baseURL: YOUTUBE_ANALYTICS_BASE,
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
     });
   }
 
@@ -254,7 +255,7 @@ export class YouTubeApiClient {
       viewCount,
       videoCount,
       country: snippet.country,
-      topicCategories: topicDetails.topicCategories || [],
+      topicCategories: this.formatTopicCategories(topicDetails.topicCategories),
       growthRate: this.calculateGrowthRate(subscriberCount, videoCount),
       viralScore: this.calculateViralScore(viewCount, subscriberCount, videoCount),
       avgViewsPerVideo: videoCount > 0 ? viewCount / videoCount : 0,
@@ -262,6 +263,23 @@ export class YouTubeApiClient {
       lastUploadAt: snippet.publishedAt,
       thumbnails: snippet.thumbnails,
     };
+  }
+
+  private formatTopicCategories(categories?: string[]): string[] {
+    if (!categories || categories.length === 0) return [];
+    const seen = new Set<string>();
+    const formatted: string[] = [];
+    for (const category of categories) {
+      const parts = category.split("/").filter(Boolean);
+      const last = parts[parts.length - 1] || "";
+      const label = last.replace(/[_-]/g, " ");
+      const display = label.charAt(0).toUpperCase() + label.slice(1);
+      if (!seen.has(display)) {
+        seen.add(display);
+        formatted.push(display);
+      }
+    }
+    return formatted.slice(0, 6);
   }
 
   private mapToViralVideo(video: any): ViralVideo {
@@ -338,4 +356,8 @@ export class YouTubeApiClient {
 
 export function createYouTubeClient(accessToken: string) {
   return new YouTubeApiClient(accessToken);
+}
+
+export function createPublicYouTubeClient() {
+  return new YouTubeApiClient(undefined, process.env.YOUTUBE_API_KEY || "");
 }
