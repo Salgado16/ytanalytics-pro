@@ -107,32 +107,65 @@ export class YouTubeApiClient {
   async getChannelAnalytics(
     startDate: string,
     endDate: string,
-    metrics = "views,subscribersGained,subscribersLost,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,revenue,rpm,impressions,clickThroughRate"
+    metrics: string[] = [
+      "views",
+      "subscribersGained",
+      "subscribersLost",
+      "estimatedMinutesWatched",
+      "averageViewDuration",
+      "averageViewPercentage",
+      "revenue",
+      "rpm",
+      "impressions",
+      "clickThroughRate",
+    ]
   ): Promise<ChannelAnalytics[]> {
+    const expected = [
+      "views",
+      "subscribersGained",
+      "subscribersLost",
+      "estimatedMinutesWatched",
+      "averageViewDuration",
+      "averageViewPercentage",
+      "revenue",
+      "rpm",
+      "impressions",
+      "clickThroughRate",
+    ];
+
     const response = await this.analyticsClient.get("/reports", {
       params: {
         ids: "channel==MINE",
         startDate,
         endDate,
-        metrics,
+        metrics: metrics.join(","),
         dimensions: "day",
         sort: "day",
       },
     });
 
+    const rowOf = (row: any[], metric: string) => {
+      const index = metrics.indexOf(metric);
+      return index >= 0 ? Number(row[index + 1] ?? 0) : undefined;
+    };
+
     return response.data.rows?.map((row: any[]) => ({
       channelId: "mine",
       date: row[0],
-      views: row[1],
-      subscribersGained: row[2],
-      subscribersLost: row[3],
-      estimatedMinutesWatched: row[4],
-      averageViewDuration: row[5],
-      averageViewPercentage: row[6],
-      revenue: row[7],
-      rpm: row[8],
-      impressions: row[9],
-      ctr: row[10],
+      views: rowOf(row, "views"),
+      subscribersGained: rowOf(row, "subscribersGained"),
+      subscribersLost: rowOf(row, "subscribersLost"),
+      estimatedMinutesWatched: rowOf(row, "estimatedMinutesWatched"),
+      averageViewDuration: expected.includes("averageViewDuration")
+        ? rowOf(row, "averageViewDuration")
+        : undefined,
+      averageViewPercentage: expected.includes("averageViewPercentage")
+        ? rowOf(row, "averageViewPercentage")
+        : undefined,
+      revenue: rowOf(row, "revenue"),
+      rpm: rowOf(row, "rpm"),
+      impressions: rowOf(row, "impressions"),
+      ctr: rowOf(row, "clickThroughRate"),
     })) || [];
   }
 
