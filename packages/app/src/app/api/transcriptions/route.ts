@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getAccessToken } from "@/lib/yt-token";
+import { YouTubeApiClient } from "@/lib/youtube-api";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,88 +13,49 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const transcriptions = await prisma.transcription.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-    });
+    const { searchParams } = new URL(request.url);
+    const videoId = searchParams.get("videoId");
+    const action = searchParams.get("action");
 
-    return NextResponse.json(transcriptions);
-  } catch (error) {
-    console.error("Error fetching transcriptions:", error);
-    return NextResponse.json({ error: "Erro ao buscar transcrições" }, { status: 500 });
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    if (!videoId) {
+      return NextResponse.json({ error: "videoId obrigatório" }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { sourceType, sourceUrl, language } = body;
-
-    if (!sourceUrl) {
-      return NextResponse.json({ error: "URL obrigatória" }, { status: 400 });
+    const accessToken = await getAccessToken(request);
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Sessão do YouTube não disponível. Faça login novamente." },
+        { status: 401 }
+      );
     }
 
-    const transcription = await prisma.transcription.create({
-      data: {
-        userId: session.user.id,
-        sourceType,
-        sourceUrl,
-        language: language || "pt-BR",
-        status: "pending",
-      },
-    });
+    const yt = new YouTubeApiClient(accessToken);
 
-    // Trigger async processing (in production, use a queue)
-    processTranscription(transcription.id, sourceType, sourceUrl, language || "pt-BR");
+    if (action === "download") {
+      const captionId = searchParams.get("captionId");
+      const format = searchParams.get("format") || "srt";
+      if (!captionId) {
+        return NextResponse.json({ error: "captionId obrigatório para download" }, { status: 400 });
+      }
+      const caption = await yt.downloadCaption(captionId, format);
+      return new NextResponse(caption, {
+        headers: {
+          "Content-Type": format === "srt" ? "text/plain" : "application/xml",
+          "Content-Disposition": `attachment; filename="caption_${captionId}.${format}"`,
+        },
+      });
+    }
 
-    return NextResponse.json(transcription);
-  } catch (error) {
-    console.error("Error creating transcription:", error);
-    return NextResponse.json({ error: "Erro ao criar transcrição" }, { status: 500 });
-  }
-}
-
-async function processTranscription(id: string, sourceType: string, sourceUrl: string, language: string) {
-  try {
-    await prisma.transcription.update({
-      where: { id },
-      data: { status: "processing" },
-    });
-
-    // In production, integrate with AssemblyAI, Whisper, or other services
-    // For now, simulate processing
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // Mock result
-    const mockText = `Esta é uma transcrição simulada do vídeo/áudio: ${sourceUrl}. Em produção, isso seria processado por AssemblyAI, OpenAI Whisper, ou similar.`;
-    const mockSegments = [
-      { start: 0, end: 5, text: "Olá, bem-vindo ao meu canal!", confidence: 0.95 },
-      { start: 5, end: 12, text: "Hoje vamos falar sobre como crescer no YouTube.", confidence: 0.92 },
-      { start: 12, end: 20, text: "Vou compartilhar 5 dicas essenciais.", confidence: 0.89 },
-    ];
-
-    await prisma.transcription.update({
-      where: { id },
-      data: {
-        status: "completed",
-        text: mockText,
-        segments: mockSegments,
-        completedAt: new Date(),
-      },
-    });
-  } catch (error) {
-    console.error("Transcription processing error:", error);
-    await prisma.transcription.update({
-      where: { id },
-      data: {
-        status: "failed",
-        error: "Erro no processamento",
-      },
-    });
+    const captions = await yt.getVideoCaptions(videoId);
+    return NextResponse.json(captions);
+  } catch (error: any) {
+    console.error("Error fetching captions:", error?.message || error);
+    if (error?.response?.status === 403) {
+      return NextResponse.json(
+        { error: "Sem permissão para acessar legendas deste vídeo. O vídeo pode não ter legendas ou ser privado." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ error: "Erro ao buscar legendas" }, { status: 500 });
   }
 }

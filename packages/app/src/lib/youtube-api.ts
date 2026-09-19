@@ -238,6 +238,21 @@ export class YouTubeApiClient {
     return response.data;
   }
 
+  async getVideoCaptions(videoId: string) {
+    const response = await this.client.get("/captions", {
+      params: { part: "snippet", videoId },
+    });
+    return response.data.items || [];
+  }
+
+  async downloadCaption(captionId: string, format = "srt") {
+    const response = await this.client.get(`/captions/${captionId}`, {
+      params: { tfmt: format },
+      responseType: "text",
+    });
+    return response.data;
+  }
+
   private mapToNicheChannel(channel: any): NicheChannel {
     const stats = channel.statistics || {};
     const snippet = channel.snippet || {};
