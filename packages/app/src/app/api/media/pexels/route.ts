@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "API key não configurada" }, { status: 500 });
     }
 
-    const endpoint = type === "video" ? "videos/search" : "search";
+    const endpoint = type === "video" ? "videos/search" : "v1/search";
     const url = `https://api.pexels.com/${endpoint}?query=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}`;
 
     const response = await fetch(url, {
