@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Card,
@@ -12,40 +13,84 @@ import {
   Users,
   Plus,
   Eye,
-  BarChart2,
-  Settings,
-  MoreHorizontal,
+  Youtube,
   Trash2,
-  Edit,
+  RefreshCw,
+  Link2,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui";
-import { formatNumber, formatRelativeTime } from "@/lib/utils";
+import { formatNumber } from "@/lib/utils";
 
-const mockChannels = [
-  {
-    id: "UC123",
-    title: "Meu Canal Principal",
-    handle: "@meucanal",
-    subscribers: 156000,
-    views: 2400000,
-    videos: 245,
-    thumbnail: "https://picsum.photos/80/80?random=10",
-    connected: true,
-  },
-  {
-    id: "UC456",
-    title: "Canal Secundário",
-    handle: "@canalsecundario",
-    subscribers: 23000,
-    views: 450000,
-    videos: 89,
-    thumbnail: "https://picsum.photos/80/80?random=11",
-    connected: true,
-  },
-];
+interface ChannelData {
+  id: string;
+  channelId: string;
+  channelTitle: string;
+  channelHandle?: string;
+  isPrimary: boolean;
+  createdAt: string;
+  stats?: {
+    subscribers: number;
+    totalViews: number;
+    videos: number;
+    thumbnail?: string;
+  };
+}
 
 export default function ChannelsPage() {
   const { user } = useAuth();
+  const [channels, setChannels] = useState<ChannelData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadChannels = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/channels", { cache: "no-store" });
+      if (!res.ok) throw new Error("Erro ao carregar canais");
+      const data = await res.json();
+      setChannels(data || []);
+    } catch (e: any) {
+      setError(e.message || "Erro ao carregar canais");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadChannels();
+  }, [loadChannels]);
+
+  const connectChannel = async () => {
+    setConnecting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/channels/connect", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.error || "Erro ao conectar canal");
+      } else {
+        await loadChannels();
+      }
+    } catch (e: any) {
+      setError(e.message || "Erro ao conectar canal");
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const disconnectChannel = async (id: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/channels/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao remover canal");
+      await loadChannels();
+    } catch (e: any) {
+      setError(e.message || "Erro ao remover canal");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -53,130 +98,125 @@ export default function ChannelsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Gestão de Canais</h1>
           <p className="text-muted-foreground">
-            Gerencie seus canais conectados e acompanhe métricas
+            Gerencie seus canais conectados e acompanhe métricas reais
           </p>
         </div>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Conectar Novo Canal
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={loadChannels} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+          <Button onClick={connectChannel} disabled={connecting}>
+            {connecting ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Youtube className="h-4 w-4 mr-2" />
+            )}
+            {connecting ? "Conectando..." : "Conectar meu Canal"}
+          </Button>
+        </div>
       </div>
 
+      {error && (
+        <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
+          <CardContent className="py-3">
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-24">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      {!loading && channels.length === 0 && (
+        <Card className="border-dashed border-2">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Link2 className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Nenhum canal conectado</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Conecte seu canal do YouTube usando a sua conta Google para ver métricas no dashboard e gerenciar todos os seus canais.
+            </p>
+            <Button onClick={connectChannel} disabled={connecting}>
+              <Youtube className="h-4 w-4 mr-2" />
+              Conectar meu Canal via YouTube
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {mockChannels.map((channel) => (
+        {channels.map((channel) => (
           <Card key={channel.id}>
             <CardHeader className="pb-2">
               <div className="flex items-start gap-4">
-                <img
-                  src={channel.thumbnail}
-                  alt={channel.title}
-                  className="h-16 w-16 rounded-lg object-cover"
-                />
+                {channel.stats?.thumbnail ? (
+                  <img
+                    src={channel.stats.thumbnail}
+                    alt={channel.channelTitle}
+                    className="h-16 w-16 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-primary/10">
+                    <Youtube className="h-8 w-8 text-primary" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold truncate">{channel.title}</h3>
-                  <p className="text-sm text-muted-foreground">{channel.handle}</p>
-                  <div className="flex flex-wrap gap-4 mt-2 text-sm text-muted-foreground">
-                    <span>{formatNumber(channel.subscribers)} inscritos</span>
-                    <span>{formatNumber(channel.views)} visualizações</span>
-                    <span>{channel.videos} vídeos</span>
+                  <h3 className="font-semibold truncate">{channel.channelTitle}</h3>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {channel.channelHandle || channel.channelId}
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <span className="badge-primary">
+                      {channel.isPrimary ? "Principal" : "Conectado"}
+                    </span>
+                    <span className="badge-primary">
+                      {channel.stats ? "Verificado" : "Conectado"}
+                    </span>
                   </div>
                 </div>
-                <span className="badge-primary">Conectado</span>
               </div>
             </CardHeader>
             <CardContent>
+              {channel.stats ? (
+                <div className="flex justify-between text-sm text-muted-foreground mb-4">
+                  <span>{formatNumber(channel.stats.subscribers)} inscritos</span>
+                  <span>{formatNumber(channel.stats.totalViews)} views</span>
+                  <span>{channel.stats.videos} vídeos</span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mb-4">
+                  Canal conectado — dados de métricas disponíveis no dashboard.
+                </p>
+              )}
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1">
-                  <Eye className="h-4 w-4 mr-1" />
-                  Analytics
+                <Button variant="outline" size="sm" className="flex-1" asChild>
+                  <a
+                    href={`https://youtube.com/channel/${channel.channelId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Eye className="h-4 w-4 mr-1" />
+                    Ver no YouTube
+                  </a>
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1">
-                  <BarChart2 className="h-4 w-4 mr-1" />
-                  Vídeos
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Settings className="h-4 w-4" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={() => disconnectChannel(channel.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </CardContent>
           </Card>
         ))}
-
-        <Card className="border-dashed border-2">
-          <CardContent className="flex h-48 flex-col items-center justify-center text-muted-foreground">
-            <Plus className="h-12 w-12 mb-3 opacity-50" />
-            <h3 className="font-medium mb-1">Adicionar Canal</h3>
-            <p className="text-sm text-center">Conecte seu canal do YouTube via OAuth</p>
-            <Button className="mt-3" variant="primary">
-              <Plus className="h-4 w-4 mr-2" />
-              Conectar via YouTube
-            </Button>
-          </CardContent>
-        </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Canais Conectados</CardTitle>
-          <CardDescription>Detalhes completos e ações</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="table-container">
-            <table className="table">
-              <thead className="table-header">
-                <tr className="table-row">
-                  <th className="table-head">Canal</th>
-                  <th className="table-head">Inscritos</th>
-                  <th className="table-head">Visualizações</th>
-                  <th className="table-head">Vídeos</th>
-                  <th className="table-head">Último Upload</th>
-                  <th className="table-head">Status</th>
-                  <th className="table-head text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="table-body">
-                {mockChannels.map((channel) => (
-                  <tr key={channel.id} className="table-row">
-                    <td className="table-cell">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={channel.thumbnail}
-                          alt={channel.title}
-                          className="h-10 w-10 rounded-lg object-cover"
-                        />
-                        <div>
-                          <p className="font-medium">{channel.title}</p>
-                          <p className="text-sm text-muted-foreground">{channel.handle}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="table-cell">{formatNumber(channel.subscribers)}</td>
-                    <td className="table-cell">{formatNumber(channel.views)}</td>
-                    <td className="table-cell">{channel.videos}</td>
-                    <td className="table-cell text-muted-foreground">2 dias atrás</td>
-                    <td className="table-cell">
-                      <span className="badge-primary">Ativo</span>
-                    </td>
-                    <td className="table-cell text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <BarChart2 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
