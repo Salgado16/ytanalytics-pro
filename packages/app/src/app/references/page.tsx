@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import {
   Card,
@@ -10,100 +10,169 @@ import {
   CardDescription,
 } from "@/components/ui";
 import {
-  Library,
   Plus,
-  Search,
-  Tag,
-  Edit,
   Trash2,
-  ExternalLink,
-  Video,
-  FileText,
-  Image,
+  Film,
   Music,
-  File,
-  Filter,
+  Image,
+  BookOpen,
+  Link2,
+  ExternalLink,
+  Save,
+  X,
+  Loader2,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
+import { Textarea } from "@/components/ui";
 import { Badge } from "@/components/ui";
-import { Label } from "@/components/ui";
-import { formatRelativeTime } from "@/lib/utils";
 
-const mockReferences = [
-  {
-    id: "1",
-    title: "Como Fazer Thumbnails Virais - YouTube",
-    type: "video",
-    url: "https://youtube.com/watch?v=abc123",
-    thumbnail: "https://picsum.photos/320/180?random=20",
-    description: "Tutorial completo sobre design de thumbnails com CTR alto",
-    tags: ["thumbnail", "design", "CTR", "viral"],
-    channelId: "UC123",
-    videoId: "abc123",
-    createdAt: "2024-01-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    title: "O Algoritmo do YouTube em 2024 - Artigo",
-    type: "article",
-    url: "https://blog.youtube/algorithm-2024",
-    thumbnail: "https://picsum.photos/320/180?random=21",
-    description: "Análise profunda das mudanças no algoritmo este ano",
-    tags: ["algoritmo", "2024", "crescimento", "SEO"],
-    channelId: "",
-    videoId: "",
-    createdAt: "2024-01-12T14:30:00Z",
-  },
-  {
-    id: "3",
-    title: "Pack de Elementos para Thumbnails",
-    type: "image",
-    url: "https://figma.com/community/thumbnails-pack",
-    thumbnail: "https://picsum.photos/320/180?random=22",
-    description: "Set de setas, formas, textos prontos para thumbnails",
-    tags: ["assets", "figma", "design", "gratuito"],
-    channelId: "",
-    videoId: "",
-    createdAt: "2024-01-10T09:15:00Z",
-  },
+const TYPES = [
+  { value: "video", label: "Vídeo", icon: Film },
+  { value: "channel", label: "Canal", icon: Film },
+  { value: "article", label: "Artigo", icon: BookOpen },
+  { value: "image", label: "Imagem", icon: Image },
+  { value: "audio", label: "Áudio", icon: Music },
+  { value: "link", label: "Link", icon: Link2 },
 ];
 
-const types = [
-  { value: "all", label: "Todos", icon: Library },
-  { value: "video", label: "Vídeos", icon: Video },
-  { value: "article", label: "Artigos", icon: FileText },
-  { value: "image", label: "Imagens", icon: Image },
-  { value: "audio", label: "Áudios", icon: Music },
-  { value: "document", label: "Documentos", icon: File },
-];
+interface Reference {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+  thumbnail?: string;
+  description?: string;
+  tags: string[];
+  channelId?: string;
+  videoId?: string;
+  createdAt: string;
+}
 
 export default function ReferencesPage() {
   const { user } = useAuth();
+  const [references, setReferences] = useState<Reference[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedType, setSelectedType] = useState("all");
-  const [showModal, setShowModal] = useState(false);
-  const [editingRef, setEditingRef] = useState<any>(null);
 
-  const filteredRefs = mockReferences.filter((ref) => {
-    const matchesSearch =
-      ref.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ref.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ref.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesType = selectedType === "all" || ref.type === selectedType;
-    return matchesSearch && matchesType;
+  const [showForm, setShowForm] = useState(false);
+  const [editingRef, setEditingRef] = useState<Reference | null>(null);
+
+  const [formData, setFormData] = useState({
+    title: "",
+    type: "video",
+    url: "",
+    thumbnail: "",
+    description: "",
+    tags: "",
+    channelId: "",
+    videoId: "",
   });
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "video": return <Video className="h-4 w-4" />;
-      case "article": return <FileText className="h-4 w-4" />;
-      case "image": return <Image className="h-4 w-4" />;
-      case "audio": return <Music className="h-4 w-4" />;
-      case "document": return <File className="h-4 w-4" />;
-      default: return <Library className="h-4 w-4" />;
+  const loadReferences = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/references", { cache: "no-store" });
+      if (!res.ok) throw new Error("Erro ao carregar referências");
+      const data = await res.json();
+      setReferences(data || []);
+    } catch (e: any) {
+      setError(e.message || "Erro ao carregar referências");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReferences();
+  }, [loadReferences]);
+
+  const filteredRefs = references.filter((ref) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      ref.title.toLowerCase().includes(q) ||
+      ref.description?.toLowerCase().includes(q) ||
+      ref.tags.some((t) => t.toLowerCase().includes(q)) ||
+      ref.type.toLowerCase().includes(q)
+    );
+  });
+
+  const resetForm = () => {
+    setFormData({ title: "", type: "video", url: "", thumbnail: "", description: "", tags: "", channelId: "", videoId: "" });
+    setEditingRef(null);
+    setShowForm(false);
+  };
+
+  const openForm = (ref?: Reference) => {
+    if (ref) {
+      setEditingRef(ref);
+      setFormData({
+        title: ref.title,
+        type: ref.type,
+        url: ref.url,
+        thumbnail: ref.thumbnail || "",
+        description: ref.description || "",
+        tags: ref.tags.join(", "),
+        channelId: ref.channelId || "",
+        videoId: ref.videoId || "",
+      });
+    } else {
+      setEditingRef(null);
+      setFormData({ title: "", type: "video", url: "", thumbnail: "", description: "", tags: "", channelId: "", videoId: "" });
+    }
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const url = editingRef ? `/api/references/${editingRef.id}` : "/api/references";
+      const method = editingRef ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title,
+          type: formData.type,
+          url: formData.url,
+          thumbnail: formData.thumbnail || undefined,
+          description: formData.description || undefined,
+          tags: formData.tags.split(",").map((t) => t.trim()).filter(Boolean),
+          channelId: formData.channelId || undefined,
+          videoId: formData.videoId || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erro ao salvar");
+      await loadReferences();
+      resetForm();
+    } catch (e: any) {
+      setError(e.message || "Erro ao salvar");
+    } finally {
+      setSaving(false);
     }
   };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja remover esta referência?")) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/references/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Erro ao remover");
+      await loadReferences();
+    } catch (e: any) {
+      setError(e.message || "Erro ao remover");
+    }
+  };
+
+  const typeConfig = TYPES.find((t) => t.value === formData.type) || TYPES[0];
 
   return (
     <div className="space-y-6">
@@ -111,17 +180,17 @@ export default function ReferencesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Referências</h1>
           <p className="text-muted-foreground">
-            Salve vídeos, artigos, imagens e outros materiais de inspiração
+            Salve e organize inspirações, canais, vídeos e artigos
           </p>
         </div>
-        <Button onClick={() => { setEditingRef(null); setShowModal(true); }}>
+        <Button onClick={() => openForm()}>
           <Plus className="h-4 w-4 mr-2" />
           Nova Referência
         </Button>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <div className="relative flex-1 min-w-[250px]">
+      <div className="flex gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar referências..."
@@ -130,154 +199,266 @@ export default function ReferencesPage() {
             className="pl-10"
           />
         </div>
-        <div className="flex gap-1">
-          {types.map((t) => (
-            <Button
-              key={t.value}
-              variant={selectedType === t.value ? "primary" : "outline"}
-              size="sm"
-              onClick={() => setSelectedType(t.value)}
-            >
-              <t.icon className="mr-1" />
-              {t.label}
-            </Button>
-          ))}
-        </div>
       </div>
+
+      {error && (
+        <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
+          <CardContent className="py-3">
+            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      {!loading && filteredRefs.length === 0 && !showForm && (
+        <Card className="border-dashed border-2">
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Film className="h-8 w-8 text-primary" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Nenhuma referência salva</h3>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Adicione vídeos, canais, artigos ou links que te inspiram para consultar depois.
+            </p>
+            <Button onClick={() => openForm()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar primeira Referência
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredRefs.map((ref) => (
-          <Card key={ref.id}>
-            <div className="relative aspect-video overflow-hidden">
-              {ref.thumbnail ? (
-                <img src={ref.thumbnail} alt={ref.title} className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center bg-muted">
-                  {getTypeIcon(ref.type)}
+        {filteredRefs.map((ref) => {
+          const type = TYPES.find((t) => t.value === ref.type) || TYPES[0];
+          const Icon = type.icon;
+          return (
+            <Card key={ref.id} className="flex flex-col">
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-semibold truncate">{ref.title}</h3>
+                      <Badge variant="outline" className="text-xs mt-1">
+                        {type.label}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      asChild
+                    >
+                      <a href={ref.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => handleDelete(ref.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              )}
-              <div className="absolute top-2 right-2">
-                <Badge variant="secondary">{ref.type}</Badge>
-              </div>
-            </div>
-            <CardHeader className="pb-2">
-              <h3 className="font-semibold line-clamp-1">{ref.title}</h3>
-              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{ref.description}</p>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-1 mb-3">
-                {ref.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-xs">
-                    <Tag className="h-3 w-3 mr-1" />
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {formatRelativeTime(ref.createdAt)}
-                </span>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" asChild>
-                    <a href={ref.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => { setEditingRef(ref); setShowModal(true); }}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700">
-                    <Trash2 className="h-4 w-4" />
+              </CardHeader>
+              <CardContent className="flex-1 flex flex-col">
+                {ref.thumbnail && (
+                  <img
+                    src={ref.thumbnail}
+                    alt={ref.title}
+                    className="w-full h-32 object-cover rounded mb-3"
+                  />
+                )}
+                {ref.description && (
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{ref.description}</p>
+                )}
+                {ref.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {ref.tags.slice(0, 4).map((tag, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs h-5">
+                        {tag}
+                      </Badge>
+                    ))}
+                    {ref.tags.length > 4 && (
+                      <Badge variant="secondary" className="text-xs h-5">
+                        +{ref.tags.length - 4}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-auto pt-2 border-t">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(ref.createdAt).toLocaleDateString("pt-BR")}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => openForm(ref)}
+                    className="text-primary hover:bg-primary/10"
+                  >
+                    Editar
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-
-        {filteredRefs.length === 0 && (
-          <Card className="col-span-full text-center py-12">
-            <Library className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhuma referência encontrada</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchQuery || selectedType !== "all"
-                ? "Tente ajustar sua busca ou filtros"
-                : "Comece salvando sua primeira referência"}
-            </p>
-            <Button onClick={() => { setEditingRef(null); setShowModal(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Referência
-            </Button>
-          </Card>
-        )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>{editingRef ? "Editar Referência" : "Nova Referência"}</CardTitle>
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>{editingRef ? "Editar Referência" : "Nova Referência"}</CardTitle>
+                <CardDescription>
+                  Preencha os campos abaixo para {editingRef ? "atualizar" : "criar"} sua referência
+                </CardDescription>
+              </div>
+              <Button variant="ghost" size="icon" onClick={resetForm}>
+                <X className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="refUrl">URL *</Label>
+                  <label htmlFor="title" className="block text-sm font-medium mb-1">
+                    Título *
+                  </label>
                   <Input
-                    id="refUrl"
-                    type="url"
-                    defaultValue={editingRef?.url || ""}
-                    placeholder="https://youtube.com/watch?v=... ou https://artigo.com"
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Ex: Como editar vídeos no Premiere"
                     required
                   />
                 </div>
+
                 <div>
-                  <Label htmlFor="refTitle">Título</Label>
-                  <Input
-                    id="refTitle"
-                    defaultValue={editingRef?.title || ""}
-                    placeholder="Título da referência (auto-preenchido se for YouTube)"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="refType">Tipo</Label>
+                  <label htmlFor="type" className="block text-sm font-medium mb-1">
+                    Tipo *
+                  </label>
                   <select
-                    id="refType"
-                    defaultValue={editingRef?.type || "video"}
-                    className="input"
+                    id="type"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className="input w-full"
                   >
-                    {types.slice(1).map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
+                    {TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
                     ))}
                   </select>
                 </div>
+
                 <div>
-                  <Label htmlFor="refDescription">Descrição</Label>
-                  <textarea
-                    id="refDescription"
-                    defaultValue={editingRef?.description || ""}
-                    placeholder="Por que salvou esta referência? O que achou interessante?"
-                    className="input min-h-[80px]"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="refTags">Tags (separadas por vírgula)</Label>
+                  <label htmlFor="url" className="block text-sm font-medium mb-1">
+                    URL *
+                  </label>
                   <Input
-                    id="refTags"
-                    defaultValue={editingRef?.tags.join(", ") || ""}
-                    placeholder="thumbnail, design, viral, CTR"
+                    id="url"
+                    type="url"
+                    value={formData.url}
+                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                    placeholder="https://youtube.com/watch?v=... ou https://..."
+                    required
                   />
                 </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+
+                <div>
+                  <label htmlFor="thumbnail" className="block text-sm font-medium mb-1">
+                    Thumbnail (URL da imagem)
+                  </label>
+                  <Input
+                    id="thumbnail"
+                    type="url"
+                    value={formData.thumbnail}
+                    onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
+                    placeholder="https://..."
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium mb-1">
+                    Descrição / Notas
+                  </label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Por que isso é relevante? O que aprender?"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="tags" className="block text-sm font-medium mb-1">
+                    Tags (separadas por vírgula)
+                  </label>
+                  <Input
+                    id="tags"
+                    value={formData.tags}
+                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                    placeholder="Ex: edição, premiere, tutorial, cortes"
+                  />
+                </div>
+
+                {formData.type === "video" && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label htmlFor="videoId" className="block text-sm font-medium mb-1">
+                        Video ID (YouTube)
+                      </label>
+                      <Input
+                        id="videoId"
+                        value={formData.videoId}
+                        onChange={(e) => setFormData({ ...formData, videoId: e.target.value })}
+                        placeholder="dQw4w9WgXcQ"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="channelId" className="block text-sm font-medium mb-1">
+                        Channel ID (YouTube)
+                      </label>
+                      <Input
+                        id="channelId"
+                        value={formData.channelId}
+                        onChange={(e) => setFormData({ ...formData, channelId: e.target.value })}
+                        placeholder="UC..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  <Button type="button" variant="outline" onClick={resetForm}>
                     Cancelar
                   </Button>
-                  <Button type="submit" onClick={() => setShowModal(false)}>
-                    {editingRef ? "Salvar Alterações" : "Salvar Referência"}
+                  <Button type="submit" disabled={saving}>
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    {editingRef ? "Salvar alterações" : "Criar Referência"}
                   </Button>
                 </div>
               </form>
             </CardContent>
-</Card>
+          </Card>
         </div>
       )}
     </div>
