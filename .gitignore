@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js / builds
+.next/
+out/
+build/
+.turbo/
+.tsbuildinfo
+next-env.d.ts
+
+# Extension build artifacts
+packages/extension/dist/
+
+# Env / secrets - NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Prisma generated client (regenerated on install)
+packages/app/node_modules/.prisma/

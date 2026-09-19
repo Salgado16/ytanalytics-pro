@@ -1,0 +1,3 @@
+@echo off
+title YTAnalytics Pro - Starting...
+cmd /c "C:\Users\topga\Documents\YTAnalytics-Pro\setup.bat"

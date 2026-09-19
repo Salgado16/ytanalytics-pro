@@ -1,0 +1,33 @@
+{
+  "name": "@ytanalytics-pro/extension",
+  "version": "1.0.0",
+  "description": "YTAnalytics Pro - Browser Extension",
+  "private": true,
+  "scripts": {
+    "dev": "wxt dev",
+    "build": "node build.js",
+    "zip": "wxt zip",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "@ytanalytics-pro/shared": "^1.0.0",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwind-merge": "^2.2.0",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.46",
+    "@types/react-dom": "^18.2.18",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.56.0",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.3",
+    "wxt": "^0.17.0"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "ytanalytics-pro",
+  "version": "1.0.0",
+  "description": "YTAnalytics Pro - YouTube Analytics Suite + Browser Extension",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:app\" \"npm run dev:extension\"",
+    "dev:app": "npm run dev --workspace=packages/app",
+    "dev:extension": "npm run dev --workspace=packages/extension",
+    "build": "npm run build --workspaces",
+    "build:app": "npm run build --workspace=packages/app",
+    "build:extension": "npm run build --workspace=packages/extension",
+    "lint": "npm run lint --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "db:push": "npm run db:push --workspace=packages/app",
+    "db:studio": "npm run db:studio --workspace=packages/app",
+    "setup": "node scripts/setup.js",
+    "install:all": "npm install && npm install --workspace=packages/shared && npm install --workspace=packages/app && npm install --workspace=packages/extension"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "npm@10.0.0"
+}

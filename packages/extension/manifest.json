@@ -1,0 +1,53 @@
+{
+  "name": "YTAnalytics Pro",
+  "description": "Analytics, Growth & Tools para criadores do YouTube",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "identity"
+  ],
+  "host_permissions": [
+    "*://*.youtube.com/*",
+    "*://*.googleapis.com/*"
+  ],
+  "oauth2": {
+    "client_id": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/youtube.force-ssl",
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+      "https://www.googleapis.com/auth/yt-analytics-monetary.readonly"
+    ]
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "YTAnalytics Pro"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "css": ["content.css"]
+    },
+    {
+      "matches": ["*://studio.youtube.com/*"],
+      "js": ["studio-content.js"],
+      "run_at": "document_idle",
+      "css": ["content.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*", "injected/*"],
+      "matches": ["*://*.youtube.com/*", "*://studio.youtube.com/*"]
+    }
+  ]
+}
