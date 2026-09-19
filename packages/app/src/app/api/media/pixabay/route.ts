@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "API key não configurada" }, { status: 500 });
     }
 
-    const mediaType = type === "video" ? "videos" : "images";
-    const url = `https://pixabay.com/api/${mediaType}/?key=${apiKey}&q=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}&lang=pt&safesearch=true`;
+    const mediaType = type === "video" ? "videos/" : "";
+    const url = `https://pixabay.com/api/${mediaType}?key=${apiKey}&q=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}&lang=pt&safesearch=true`;
 
     const response = await fetch(url);
     if (!response.ok) {
