@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    console.log("[transcriptions] session:", session?.user?.id, session?.accessToken ? "has accessToken" : "no accessToken");
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
@@ -22,9 +23,10 @@ export async function GET(request: NextRequest) {
     }
 
     const accessToken = await getAccessToken(request);
+    console.log("[transcriptions] accessToken:", accessToken ? "ok" : "null/expired");
     if (!accessToken) {
       return NextResponse.json(
-        { error: "Sessão do YouTube não disponível. Faça login novamente." },
+        { error: "Sessão do YouTube expirada. Faça login novamente ou reconecte o canal." },
         { status: 401 }
       );
     }
@@ -47,15 +49,22 @@ export async function GET(request: NextRequest) {
     }
 
     const captions = await yt.getVideoCaptions(videoId);
+    console.log("[transcriptions] captions found:", captions.length);
     return NextResponse.json(captions);
   } catch (error: any) {
-    console.error("Error fetching captions:", error?.message || error);
+    console.error("[transcriptions] Error:", error?.response?.data || error?.message || error);
     if (error?.response?.status === 403) {
       return NextResponse.json(
-        { error: "Sem permissão para acessar legendas deste vídeo. O vídeo pode não ter legendas ou ser privado." },
+        { error: "Sem permissão para acessar legendas deste vídeo. O vídeo pode não ter legendas, ser privado, ou seu token não tem escopo youtube.force-ssl." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ error: "Erro ao buscar legendas" }, { status: 500 });
+    if (error?.response?.status === 401) {
+      return NextResponse.json(
+        { error: "Token expirado ou inválido. Faça login novamente." },
+        { status: 401 }
+      );
+    }
+    return NextResponse.json({ error: error?.response?.data?.error?.message || error?.message || "Erro ao buscar legendas" }, { status: 500 });
   }
 }
