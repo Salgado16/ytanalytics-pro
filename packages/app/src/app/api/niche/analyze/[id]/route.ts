@@ -3,143 +3,197 @@ import { createPublicYouTubeClient } from "@/lib/youtube-api";
 
 export const dynamic = "force-dynamic";
 
+const FALLBACK_ANALYSIS = {
+  channelId: "fallback",
+  overview: {
+    totalViews: 0,
+    totalSubscribers: 0,
+    totalVideos: 0,
+    avgViewsPerVideo: 0,
+    uploadFrequency: 0,
+    channelAge: "0",
+    lastUploadAt: null,
+  },
+  performance: {
+    viralScore: 0,
+    growthRate: "0",
+    engagementRate: "0",
+    avgRetention: "Não disponível",
+  },
+  contentStrategy: {
+    mainTopics: [],
+    videoTypes: [],
+    uploadSchedule: "Sem dados",
+    titlePattern: "Sem dados",
+  },
+  audience: {
+    topCountries: ["Não disponível sem YouTube Analytics"],
+    ageGroups: ["Não disponível sem YouTube Analytics"],
+    genderSplit: "Não disponível sem YouTube Analytics",
+    interests: [],
+  },
+  monetization: {
+    estimatedMonthlyRevenue: "Estimativa sem acesso à monetização",
+    rpm: "N/A",
+    revenueSources: [
+      { source: "Ads", percentage: 50 },
+      { source: "Patrocínios", percentage: 30 },
+      { source: "Afiliados", percentage: 15 },
+      { source: "Produtos Próprios", percentage: 5 },
+    ],
+  },
+  recommendations: ["Quota da API excedida. Tente novamente mais tarde ou aguarde reset diário."],
+  competitors: [],
+  dataSource: "Fallback - quota YouTube API excedida",
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const yt = createPublicYouTubeClient();
-    const channel = (await yt.getChannelById(params.id)) as any;
 
-    if (!channel) {
-      return NextResponse.json({ error: "Canal não encontrado" }, { status: 404 });
-    }
+    try {
+      const channel = (await yt.getChannelById(params.id)) as any;
 
-    const snippet = channel.snippet || {};
-    const stats = channel.statistics || {};
-    const topicDetails = channel.topicDetails || {};
+      if (!channel) {
+        return NextResponse.json({ error: "Canal não encontrado" }, { status: 404 });
+      }
 
-    const subscriberCount = parseInt(stats.subscriberCount || "0");
-    const totalViews = parseInt(stats.viewCount || "0");
-    const totalVideos = parseInt(stats.videoCount || "0");
+      const snippet = channel.snippet || {};
+      const stats = channel.statistics || {};
+      const topicDetails = channel.topicDetails || {};
 
-    const videosData = await yt.getChannelVideos(params.id, 50);
-    const videoIds = (videosData.items || [])
-      .map((item: any) => item.id?.videoId)
-      .filter(Boolean)
-      .slice(0, 25);
+      const subscriberCount = parseInt(stats.subscriberCount || "0");
+      const totalViews = parseInt(stats.viewCount || "0");
+      const totalVideos = parseInt(stats.videoCount || "0");
 
-    const videoDetails: any[] = videoIds.length > 0 ? await yt.getVideosDetails(videoIds) : [];
+      const videosData = await yt.getChannelVideos(params.id, 50);
+      const videoIds = (videosData.items || [])
+        .map((item: any) => item.id?.videoId)
+        .filter(Boolean)
+        .slice(0, 25);
 
-    const publishedDates = videoDetails
-      .map((v) => new Date(v.snippet?.publishedAt).getTime())
-      .filter((t) => !isNaN(t));
+      const videoDetails: any[] = videoIds.length > 0 ? await yt.getVideosDetails(videoIds) : [];
 
-    let avgViewsPerVideo = 0;
-    let avgRetention: number | null = null;
-    if (videoDetails.length > 0) {
-      const viewsSum = videoDetails.reduce(
-        (sum, v) => sum + parseInt(v.statistics?.viewCount || "0"),
-        0
-      );
-      avgViewsPerVideo = viewsSum / videoDetails.length;
-    }
+      const publishedDates = videoDetails
+        .map((v) => new Date(v.snippet?.publishedAt).getTime())
+        .filter((t) => !isNaN(t));
 
-    const now = Date.now();
-    const videosPerWeek = publishedDates.length >= 2 ? estimateVideosPerWeek(publishedDates, now) : 0;
-    const lastUploadAt = publishedDates.length > 0 ? new Date(Math.max(...publishedDates)).toISOString() : null;
+      let avgViewsPerVideo = 0;
+      let avgRetention: number | null = null;
+      if (videoDetails.length > 0) {
+        const viewsSum = videoDetails.reduce(
+          (sum, v) => sum + parseInt(v.statistics?.viewCount || "0"),
+          0
+        );
+        avgViewsPerVideo = viewsSum / videoDetails.length;
+      }
 
-    const channelAgeYears = snippet.publishedAt
-      ? Math.max((now - new Date(snippet.publishedAt).getTime()) / (365.25 * 24 * 3600 * 1000), 0.1)
-      : 1;
+      const now = Date.now();
+      const videosPerWeek = publishedDates.length >= 2 ? estimateVideosPerWeek(publishedDates, now) : 0;
+      const lastUploadAt = publishedDates.length > 0 ? new Date(Math.max(...publishedDates)).toISOString() : null;
 
-    const growthRate =
-      channelAgeYears > 0 ? Math.min((subscriberCount / channelAgeYears) / 1000, 1000) : 0;
-    const engagementRate =
-      videoDetails.length > 0
-        ? Math.min(
-          videoDetails.reduce((sum, v) => {
-            const views = parseInt(v.statistics?.viewCount || "0");
-            const likes = parseInt(v.statistics?.likeCount || "0");
-            const comments = parseInt(v.statistics?.commentCount || "0");
-            return sum + (views > 0 ? ((likes + comments) / views) * 100 : 0);
-          }, 0) / videoDetails.length,
-          100
-        )
-        : 0;
-    const viralScore =
-      subscriberCount > 0 && totalVideos > 0
-        ? Math.min((avgViewsPerVideo / Math.max(totalViews / totalVideos, 1)) * 10, 1000)
-        : 0;
+      const channelAgeYears = snippet.publishedAt
+        ? Math.max((now - new Date(snippet.publishedAt).getTime()) / (365.25 * 24 * 3600 * 1000), 0.1)
+        : 1;
 
-    const titles = videoDetails.map((v) => v.snippet?.title || "");
-    const tags = videoDetails.flatMap((v) => v.snippet?.tags || []);
-    const topicLabels = formatTopics(topicDetails.topicCategories);
-    const mainTopics = [...new Set([...topicLabels, ...tags.slice(0, 6)])].slice(0, 6);
+      const growthRate =
+        channelAgeYears > 0 ? Math.min((subscriberCount / channelAgeYears) / 1000, 1000) : 0;
+      const engagementRate =
+        videoDetails.length > 0
+          ? Math.min(
+            videoDetails.reduce((sum, v) => {
+              const views = parseInt(v.statistics?.viewCount || "0");
+              const likes = parseInt(v.statistics?.likeCount || "0");
+              const comments = parseInt(v.statistics?.commentCount || "0");
+              return sum + (views > 0 ? ((likes + comments) / views) * 100 : 0);
+            }, 0) / videoDetails.length,
+            100
+          )
+          : 0;
+      const viralScore =
+        subscriberCount > 0 && totalVideos > 0
+          ? Math.min((avgViewsPerVideo / Math.max(totalViews / totalVideos, 1)) * 10, 1000)
+          : 0;
 
-    const videoTypes = buildVideoTypes(titles, avgViewsPerVideo);
-    const titlePatterns = detectTitlePatterns(titles);
-    const schedule = formatSchedule(publishedDates);
-    const uploadFrequency = videosPerWeek > 0 ? videosPerWeek : 1;
+      const titles = videoDetails.map((v) => v.snippet?.title || "");
+      const tags = videoDetails.flatMap((v) => v.snippet?.tags || []);
+      const topicLabels = formatTopics(topicDetails.topicCategories);
+      const mainTopics = [...new Set([...topicLabels, ...tags.slice(0, 6)])].slice(0, 6);
 
-    const competitors = await findCompetitors(yt, mainTopics, subscriberCount);
+      const videoTypes = buildVideoTypes(titles, avgViewsPerVideo);
+      const titlePatterns = detectTitlePatterns(titles);
+      const schedule = formatSchedule(publishedDates);
+      const uploadFrequency = videosPerWeek > 0 ? videosPerWeek : 1;
 
-    const recommendations = buildRecommendations({
-      uploadFrequency,
-      engagementRate,
-      avgViewsPerVideo,
-      subscriberCount,
-      lastUploadAt,
-      videoDetailsCount: videoDetails.length,
-      growthRate,
-    });
+      const competitors = await findCompetitors(yt, mainTopics, subscriberCount);
 
-    return NextResponse.json({
-      channelId: params.id,
-      overview: {
-        totalViews,
-        totalSubscribers: subscriberCount,
-        totalVideos,
-        avgViewsPerVideo: Math.round(avgViewsPerVideo),
+      const recommendations = buildRecommendations({
         uploadFrequency,
-        channelAge: channelAgeYears.toFixed(1),
+        engagementRate,
+        avgViewsPerVideo,
+        subscriberCount,
         lastUploadAt,
-      },
-      performance: {
-        viralScore: Math.round(viralScore),
-        growthRate: growthRate.toFixed(1),
-        engagementRate: engagementRate.toFixed(2),
-        avgRetention: avgRetention ? (avgRetention as number).toFixed(1) : "Não disponível",
-      },
-      contentStrategy: {
-        mainTopics,
-        videoTypes,
-        uploadSchedule: schedule,
-        titlePattern: titlePatterns,
-      },
-      audience: {
-        topCountries: ["Não disponível sem YouTube Analytics"],
-        ageGroups: ["Não disponível sem YouTube Analytics"],
-        genderSplit: "Não disponível sem YouTube Analytics",
-        interests: tags.slice(0, 8),
-      },
-      monetization: {
-        estimatedMonthlyRevenue: "Estimativa sem acesso à monetização",
-        rpm: "N/A",
-        revenueSources: [
-          { source: "Ads", percentage: 50 },
-          { source: "Patrocínios", percentage: 30 },
-          { source: "Afiliados", percentage: 15 },
-          { source: "Produtos Próprios", percentage: 5 },
-        ],
-      },
-      recommendations,
-      competitors,
-      dataSource: "Dados públicos do YouTube (channel, vídeos e estatísticas reais)",
-    });
+        videoDetailsCount: videoDetails.length,
+        growthRate,
+      });
+
+      return NextResponse.json({
+        channelId: params.id,
+        overview: {
+          totalViews,
+          totalSubscribers: subscriberCount,
+          totalVideos,
+          avgViewsPerVideo: Math.round(avgViewsPerVideo),
+          uploadFrequency,
+          channelAge: channelAgeYears.toFixed(1),
+          lastUploadAt,
+        },
+        performance: {
+          viralScore: Math.round(viralScore),
+          growthRate: growthRate.toFixed(1),
+          engagementRate: engagementRate.toFixed(2),
+          avgRetention: avgRetention ? (avgRetention as number).toFixed(1) : "Não disponível",
+        },
+        contentStrategy: {
+          mainTopics,
+          videoTypes,
+          uploadSchedule: schedule,
+          titlePattern: titlePatterns,
+        },
+        audience: {
+          topCountries: ["Não disponível sem YouTube Analytics"],
+          ageGroups: ["Não disponível sem YouTube Analytics"],
+          genderSplit: "Não disponível sem YouTube Analytics",
+          interests: tags.slice(0, 8),
+        },
+        monetization: {
+          estimatedMonthlyRevenue: "Estimativa sem acesso à monetização",
+          rpm: "N/A",
+          revenueSources: [
+            { source: "Ads", percentage: 50 },
+            { source: "Patrocínios", percentage: 30 },
+            { source: "Afiliados", percentage: 15 },
+            { source: "Produtos Próprios", percentage: 5 },
+          ],
+        },
+        recommendations,
+        competitors,
+        dataSource: "Dados públicos do YouTube (channel, vídeos e estatísticas reais)",
+      });
+    } catch (e: any) {
+      const isQuotaExceeded = e?.response?.data?.error?.code === 429 || e?.message?.includes("quota");
+      if (isQuotaExceeded) {
+        console.warn(`Quota exceeded for analyze ${params.id}, using fallback`);
+        return NextResponse.json({ ...FALLBACK_ANALYSIS, channelId: params.id });
+      }
+      throw e;
+    }
   } catch (error) {
     console.error("Channel analysis error:", error);
-    return NextResponse.json({ error: "Erro na análise" }, { status: 500 });
+    return NextResponse.json(FALLBACK_ANALYSIS, { status: 500 });
   }
 }
 

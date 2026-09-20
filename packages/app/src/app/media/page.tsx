@@ -64,17 +64,35 @@ export default function MediaPage() {
       type: mediaType,
       source,
       sourceId: asset.id.toString(),
-      url: mediaType === "image" ? asset.largeImageURL || asset.src?.original : asset.video_files?.[0]?.link,
-      thumbnail: asset.thumbnail || asset.previewURL || asset.src?.medium,
-      width: asset.imageWidth || asset.width,
-      height: asset.imageHeight || asset.height,
+      url: asset.url,
+      thumbnail: asset.thumbnail,
+      width: asset.width,
+      height: asset.height,
       duration: asset.duration,
-      tags: asset.tags?.split?.(", ") || [],
-      author: asset.user || asset.photographer,
-      authorUrl: asset.userImageURL || asset.photographer_url,
-      license: "Free for commercial use",
+      tags: asset.tags || [],
+      author: asset.author,
+      authorUrl: asset.authorUrl,
+      license: asset.license || "Free for commercial use",
     };
     await saveAsset(newAsset);
+  };
+
+  const downloadAsset = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Erro ao baixar");
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(blobUrl);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error("Download failed:", e);
+    }
   };
 
   return (
@@ -141,25 +159,56 @@ export default function MediaPage() {
 
       {activeTab === "my-library" && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {assets.filter(a => a.type === mediaType).map((asset) => (
+          {assets.filter((a) => a.type === mediaType).map((asset) => (
             <Card key={asset.id} className="group">
               <div className="relative aspect-video overflow-hidden">
-                <img
-                  src={asset.thumbnail}
-                  alt=""
-                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <Button variant="ghost" size="icon" className="bg-white/90" onClick={() => handleSaveAsset(asset, asset.source as any)}>
-                    <Download className="h-4 w-4" />
+                {asset.type === "video" ? (
+                  <video
+                    src={asset.url}
+                    className="h-full w-full object-cover"
+                    muted
+                    loop
+                    preload="metadata"
+                  />
+                ) : (
+                  <img
+                    src={asset.thumbnail}
+                    alt=""
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                  />
+                )}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 bg-white/90"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const ext = asset.type === "video" ? "mp4" : "jpg";
+                      downloadAsset(asset.url, `${asset.id}.${ext}`);
+                    }}
+                    title="Baixar arquivo"
+                  >
+                    <ExternalLink className="h-5 w-5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="bg-white/90" asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 bg-white/90"
+                    asChild
+                  >
                     <a href={asset.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="h-5 w-5" />
                     </a>
                   </Button>
-                  <Button variant="ghost" size="icon" className="bg-white/90 text-red-600" onClick={() => deleteAsset(asset.id)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 bg-white/90 text-red-600"
+                    onClick={() => deleteAsset(asset.id)}
+                    title="Remover da biblioteca"
+                  >
+                    <Trash2 className="h-5 w-5" />
                   </Button>
                 </div>
                 <div className="absolute bottom-2 left-2 right-2 flex justify-between">
@@ -195,28 +244,41 @@ export default function MediaPage() {
               <div className="relative aspect-video overflow-hidden">
                 {mediaType === "image" ? (
                   <img
-                    src={item.previewURL || item.src?.medium || item.thumbnail}
+                    src={item.thumbnail}
                     alt=""
                     className="h-full w-full object-cover"
                   />
                 ) : (
                   <video
-                    src={item.videos?.small?.link || item.video_files?.[0]?.link}
+                    src={item.url}
                     className="h-full w-full object-cover"
                     muted
                     loop
                     preload="metadata"
                   />
                 )}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-2">
                   <Button
                     variant="primary"
                     size="icon"
                     className="h-10 w-10"
                     onClick={() => handleSaveAsset(item, activeTab as "pixabay" | "pexels")}
+                    title="Salvar na biblioteca"
                   >
                     <Download className="h-5 w-5" />
-                    <span className="sr-only">Salvar</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 bg-white/90"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const ext = mediaType === "video" ? "mp4" : "jpg";
+                      downloadAsset(item.url, `${item.id}.${ext}`);
+                    }}
+                    title="Baixar arquivo"
+                  >
+                    <ExternalLink className="h-5 w-5" />
                   </Button>
                 </div>
               </div>

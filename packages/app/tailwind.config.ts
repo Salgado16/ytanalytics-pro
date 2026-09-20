@@ -16,6 +16,7 @@ module.exports = {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          glow: 'hsl(var(--primary-glow))',
           50: '#fef7ee',
           100: '#fdedd6',
           200: '#fad9ad',
@@ -71,6 +72,9 @@ module.exports = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+      },
+      spacing: {
+        18: '4.5rem',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

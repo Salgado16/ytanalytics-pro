@@ -186,6 +186,8 @@ export const Separator = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 
 Separator.displayName = "Separator";
 
+Separator.displayName = "Separator";
+
 export const Avatar = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement> & { src?: string; alt?: string; fallback?: ReactNode }>(
   ({ className, src, alt, fallback, ...props }, ref) => (
     <div
@@ -209,11 +211,23 @@ Avatar.displayName = "Avatar";
 export { Switch } from "./switch";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 
-export const DropdownMenu = ({ children }: { children: ReactNode }) => <div>{children}</div>;
-export const DropdownMenuTrigger = ({ children }: { children: ReactNode }) => <div>{children}</div>;
-export const DropdownMenuContent = ({ children }: { children: ReactNode }) => <div>{children}</div>;
-export const DropdownMenuItem = ({ children, onClick, ...props }: { children: ReactNode; onClick?: () => void } & React.HTMLAttributes<HTMLDivElement>) => (
-  <div onClick={onClick} className="flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground" {...props}>
+export const DropdownMenu = ({ children, className, align, ...props }: { children: ReactNode; className?: string; align?: "start" | "end"; } & React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn(className)} {...props}>{children}</div>
+);
+export const DropdownMenuTrigger = ({ children, asChild, ...props }: { children: ReactNode; asChild?: boolean } & React.HTMLAttributes<HTMLDivElement>) => {
+  if (asChild && typeof children === "object" && children !== null) {
+    const child = children as React.ReactElement<{ className?: string }>;
+    return cloneElement(child, { className: cn(child.props.className), ...props });
+  }
+  return <div {...props}>{children}</div>;
+};
+export const DropdownMenuContent = ({ children, className, align, ...props }: { children: ReactNode; className?: string; align?: "start" | "end" } & React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md", className)} {...props}>
+    {children}
+  </div>
+);
+export const DropdownMenuItem = ({ children, onClick, className, ...props }: { children: ReactNode; onClick?: () => void; className?: string } & React.HTMLAttributes<HTMLDivElement>) => (
+  <div onClick={onClick} className={cn("flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground", className)} {...props}>
     {children}
   </div>
 );
