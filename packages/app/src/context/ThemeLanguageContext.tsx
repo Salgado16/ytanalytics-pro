@@ -20,7 +20,7 @@ const ThemeLanguageContext = createContext<ThemeLanguageContextType>({
 });
 
 export function ThemeLanguageProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("dark");
   const [language, setLanguageState] = useState<Language>("pt-BR");
   const [mounted, setMounted] = useState(false);
 

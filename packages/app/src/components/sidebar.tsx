@@ -52,14 +52,14 @@ const navigation = [
 ];
 
 const quickActions = [
-  { name: "Nova Ideia", href: "/ideas", icon: Lightbulb, color: "text-yellow-500", bg: "bg-yellow-100 dark:bg-yellow-900/30" },
-  { name: "Buscar Nicho", href: "/niche", icon: Search, color: "text-green-500", bg: "bg-green-100 dark:bg-green-900/30" },
-  { name: "Novo TTS", href: "/tts", icon: Mic, color: "text-purple-500", bg: "bg-purple-100 dark:bg-purple-900/30" },
-  { name: "Transcrever", href: "/transcriptions", icon: FileText, color: "text-orange-500", bg: "bg-orange-100 dark:bg-orange-900/30" },
-  { name: "Buscar Mídia", href: "/media", icon: Zap, color: "text-blue-500", bg: "bg-blue-100 dark:bg-blue-900/30" },
-  { name: "Ferramentas", href: "/text-tools", icon: Scissors, color: "text-pink-500", bg: "bg-pink-100 dark:bg-pink-900/30" },
-  { name: "Skills", href: "/skills", icon: BookOpen, color: "text-indigo-500", bg: "bg-indigo-100 dark:bg-indigo-900/30" },
-  { name: "Vídeos Virais", href: "/viral", icon: TrendingUp, color: "text-red-500", bg: "bg-red-100 dark:bg-red-900/30" },
+  { name: "Nova Ideia", href: "/ideas", icon: Lightbulb, color: "text-yellow-500", bg: "bg-yellow-500/20" },
+  { name: "Buscar Nicho", href: "/niche", icon: Search, color: "text-green-500", bg: "bg-green-500/20" },
+  { name: "Novo TTS", href: "/tts", icon: Mic, color: "text-purple-500", bg: "bg-purple-500/20" },
+  { name: "Transcrever", href: "/transcriptions", icon: FileText, color: "text-orange-500", bg: "bg-orange-500/20" },
+  { name: "Buscar Mídia", href: "/media", icon: Zap, color: "text-blue-500", bg: "bg-blue-500/20" },
+  { name: "Ferramentas", href: "/text-tools", icon: Scissors, color: "text-pink-500", bg: "bg-pink-500/20" },
+  { name: "Skills", href: "/skills", icon: BookOpen, color: "text-indigo-500", bg: "bg-indigo-500/20" },
+  { name: "Vídeos Virais", href: "/viral", icon: TrendingUp, color: "text-red-500", bg: "bg-red-500/20" },
 ];
 
 const themes = [
@@ -87,7 +87,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
     >
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="flex h-16 items-center justify-between border-b px-4">
+        <div className="flex h-16 items-center justify-between border-b border-border/30 px-4">
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl gradient-text">
               <LayoutDashboard className="h-6 w-6" />
@@ -139,19 +139,17 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
         <div className="border-t p-3 space-y-4">
           {!collapsed && (
             <div className="space-y-3 animate-in">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Ações Rápidas
-                </p>
-              </div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Ações Rápidas
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {quickActions.map((action) => (
                   <Link
                     key={action.name}
                     href={action.href}
-                    className="quick-action group"
+                    className="quick-action group glass-panel-hover p-3"
                   >
-                    <div className={cn("quick-action-icon rounded-xl flex items-center justify-center mx-auto", action.bg)}>
+                    <div className={cn("quick-action-icon rounded-xl flex items-center justify-center mx-auto mb-1", action.bg)}>
                       <action.icon className={cn("h-5 w-5", action.color)} />
                     </div>
                     <span className="quick-action-text text-sm font-medium truncate">{action.name}</span>
@@ -161,7 +159,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
             </div>
           )}
 
-          <Separator />
+          <Separator className="border-border/30" />
 
           <div className="space-y-3 animate-in">
             {!collapsed && (
@@ -174,7 +172,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={collapsed ? "ghost" : "outline"}
+                  variant="ghost"
                   size={collapsed ? "icon" : "sm"}
                   className={cn(
                     "w-full justify-between gap-2 transition-colors",
@@ -195,12 +193,12 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                   {!collapsed && <ChevronDown className="h-4 w-4 opacity-50" />}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-36" align="end">
+              <DropdownMenuContent className="w-36 glass-panel" align="end">
                 {themes.map((t) => (
                   <DropdownMenuItem
                     key={t.value}
                     onClick={() => setTheme(t.value)}
-                    className={cn("flex items-center gap-2", theme === t.value && "bg-accent")}
+                    className={cn("flex items-center gap-2", theme === t.value && "bg-accent/50")}
                   >
                     <span className="text-lg">{t.icon}</span>
                     <span>{t.label}</span>
@@ -213,7 +211,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  variant={collapsed ? "ghost" : "outline"}
+                  variant="ghost"
                   size={collapsed ? "icon" : "sm"}
                   className={cn(
                     "w-full justify-between gap-2 transition-colors",
@@ -230,12 +228,12 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                   {!collapsed && <ChevronDown className="h-4 w-4 opacity-50" />}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-40" align="end">
+              <DropdownMenuContent className="w-40 glass-panel" align="end">
                 {languages.map((l) => (
                   <DropdownMenuItem
                     key={l.value}
                     onClick={() => setLanguage(l.value)}
-                    className={cn("flex items-center gap-2", language === l.value && "bg-accent")}
+                    className={cn("flex items-center gap-2", language === l.value && "bg-accent/50")}
                   >
                     <span className="text-lg">{l.flag}</span>
                     <span>{l.label}</span>
@@ -252,12 +250,12 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                       {theme === "dark" ? "🌙" : theme === "light" ? "☀️" : "💻"}
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent className="glass-panel" align="end">
                     {themes.map((t) => (
                       <DropdownMenuItem
                         key={t.value}
                         onClick={() => setTheme(t.value)}
-                        className={cn("flex items-center gap-2", theme === t.value && "bg-accent")}
+                        className={cn("flex items-center gap-2", theme === t.value && "bg-accent/50")}
                       >
                         <span className="text-lg">{t.icon}</span>
                         <span>{t.label}</span>
@@ -271,12 +269,12 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                       🌐
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent className="glass-panel" align="end">
                     {languages.map((l) => (
                       <DropdownMenuItem
                         key={l.value}
                         onClick={() => setLanguage(l.value)}
-                        className={cn("flex items-center gap-2", language === l.value && "bg-accent")}
+                        className={cn("flex items-center gap-2", language === l.value && "bg-accent/50")}
                       >
                         <span className="text-lg">{l.flag}</span>
                         <span>{l.label}</span>
@@ -290,7 +288,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
 
           {/* User Info - Collapsed */}
           {collapsed && (
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t border-border/30">
               <Button variant="ghost" size="icon" className="h-10 w-10 mx-auto" title="Menu do usuário">
                 <Menu className="h-5 w-5" />
               </Button>
