@@ -5,23 +5,6 @@ import { DashboardLayout } from '@/components/dashboard-layout';
 import { MOCK_CHANNELS, ChannelData } from '@/lib/mock-data';
 import { Tv, Plus, CheckCircle2 } from 'lucide-react';
 
-export type { ChannelData };
-
-export interface VideoData {
-  id: string;
-  title: string;
-  thumbnail?: string;
-  views: number;
-  likes: number;
-  comments: number;
-  publishedAt: string;
-  duration?: string;
-  ctr?: number;
-  retention?: number;
-}
-
-
-
 export default function ChannelsPage() {
   const [channels, setChannels] = useState<ChannelData[]>([]);
   const [loading, setLoading] = useState(true);
