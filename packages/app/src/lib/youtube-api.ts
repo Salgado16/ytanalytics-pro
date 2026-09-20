@@ -243,6 +243,21 @@ export class YouTubeApiClient {
     return response.data;
   }
 
+  async searchVideos(query: string, maxResults = 10) {
+    const response = await this.client.get("/search", {
+      params: {
+        part: "snippet",
+        q: query,
+        type: "video",
+        maxResults,
+        order: "relevance",
+        videoEmbeddable: "true",
+        videoSyndicated: "true",
+      },
+    });
+    return response.data;
+  }
+
   async getVideoCaptions(videoId: string) {
     const response = await this.client.get("/captions", {
       params: { part: "snippet", videoId },

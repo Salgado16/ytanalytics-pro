@@ -1,37 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-const titleTemplates = {
-  seo: [
-    "Como {keyword} em {year}: Guia Completo",
-    "{keyword}: Tudo o que você precisa saber",
-    "Guia Definitivo de {keyword} para Iniciantes",
-    "{number} Dicas de {keyword} que Funcionam",
-    "Melhor {keyword} de {year}: Review e Comparação",
-  ],
-  clickbait: [
-    "PARE de {keyword} ERRADO! (Descubra o Segredo)",
-    "O {keyword} que NINGUÉM te conta...",
-    "Você NÃO VAI ACREDITAR no que {keyword} fez!",
-    "Erro FATAL ao {keyword} - Evite isso!",
-    "Testei {keyword} por 30 dias - RESULTADO CHOCANTE",
-  ],
-  educational: [
-    "Aprenda {keyword} do Zero ao Avançado",
-    "{keyword} Explicado de Forma Simples",
-    "Fundamentos de {keyword}: Aula Completa",
-    "Domine {keyword} em {number} Passos",
-    "Erros Comuns em {keyword} e Como Evitar",
-  ],
-  viral: [
-    "{number} Coisas que {keyword} MUDARAM minha vida",
-    "De ZERO a {keyword}: Minha Jornada Completa",
-    "O Segredo do {keyword} que VIRALIZOU",
-    "{keyword} vs {alternative}: Qual é MELHOR?",
-    "Por que TODO MUNDO está falando de {keyword}?",
-  ],
-};
+import { createPublicYouTubeClient } from "@/lib/youtube-api";
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,113 +13,199 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { text, style = "seo" } = body;
 
-    if (!text) {
-      return NextResponse.json({ error: "Texto obrigatório" }, { status: 400 });
+    if (!text || text.trim().length < 2) {
+      return NextResponse.json({ error: "Tópico muito curto" }, { status: 400 });
     }
 
-    const keywords = extractKeywords(text);
-    const mainKeyword = keywords[0] || text.slice(0, 30);
-    const templates = titleTemplates[style as keyof typeof titleTemplates] || titleTemplates.seo;
+    const topic = text.trim();
+    const yt = createPublicYouTubeClient();
 
-    const titles = templates.map((template, i) => {
-      let title = template
-        .replace(/{keyword}/g, mainKeyword)
-        .replace(/{year}/g, new Date().getFullYear().toString())
-        .replace(/{number}/g, (i + 3).toString())
-        .replace(/{alternative}/g, keywords[1] || "Alternativa");
-      
-      // Ensure length is good for YouTube (60-70 chars ideal)
-      if (title.length > 70) {
-        title = title.slice(0, 67) + "...";
+    // Buscar vídeos reais do nicho para basear títulos no que funciona
+    let videoTitles: string[] = [];
+    let videoTags: string[] = [];
+    let topVideoTitles: string[] = [];
+
+    try {
+      const searchResults = await yt.searchVideos(topic, 8);
+      if (searchResults?.items?.length) {
+        const videoIds = searchResults.items
+          .flatMap((item: any) => item.id?.videoId)
+          .filter(Boolean)
+          .slice(0, 6);
+        
+        if (videoIds.length) {
+          const videosResponse = await yt.getVideosDetails(videoIds) as any[];
+          for (const video of videosResponse) {
+            if (video.snippet?.title) {
+              videoTitles.push(video.snippet.title);
+              // Ordenar por views para pegar os mais populares
+            }
+          }
+          // Ordenar por views (estatísticas)
+          topVideoTitles = videosResponse
+            .sort((a: any, b: any) => 
+              parseInt(b.statistics?.viewCount || "0") - parseInt(a.statistics?.viewCount || "0")
+            )
+            .slice(0, 3)
+            .map((v: any) => v.snippet?.title)
+            .filter(Boolean);
+        }
       }
-      
-      return {
-        title,
-        style,
-        score: calculateTitleScore(title, style),
-        length: title.length,
-      };
-    });
+    } catch (e) {
+      console.warn("YouTube search failed for titles:", e);
+    }
 
-    // Sort by score
-    titles.sort((a, b) => b.score - a.score);
+    // YouTube Autocomplete para o que as pessoas REALMENTE buscam
+    let autocompleteKeywords: string[] = [];
+    try {
+      const suggestUrl = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(topic)}`;
+      const suggestRes = await fetch(suggestUrl);
+      if (suggestRes.ok) {
+        const suggestData = await suggestRes.json();
+        if (suggestData[1]?.length) {
+          autocompleteKeywords = suggestData[1]
+            .map((s: any) => s[0])
+            .filter((k: string) => k.toLowerCase() !== topic.toLowerCase())
+            .slice(0, 6);
+        }
+      }
+    } catch (e) {
+      console.warn("Autocomplete failed:", e);
+    }
+
+    // Gerar títulos baseados em dados REAIS
+    const titles = generateDataDrivenTitles(topic, topVideoTitles, autocompleteKeywords, style);
 
     return NextResponse.json({
       titles,
-      keywords,
-      recommendations: generateRecommendations(mainKeyword, style),
+      keywords: extractCoreKeywords(topic),
+      autocompleteKeywords,
+      source: "youtube_real_data",
+      videoAnalyzed: videoTitles.length,
     });
   } catch (error) {
     console.error("Title optimization error:", error);
-    return NextResponse.json({ error: "Erro ao otimizar título" }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao gerar títulos" }, { status: 500 });
   }
 }
 
-function extractKeywords(text: string): string[] {
-  const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, "")
+function extractCoreKeywords(topic: string): string[] {
+  const stopWords = ["a", "o", "e", "de", "do", "da", "dos", "das", "em", "na", "no", "para", "com", "por", "como", "que", "qual", "quais", "um", "uma", "os", "as", "seu", "sua", "meu", "minha", "nosso", "nossa", "é", "são", "foi", "eram", "ser", "estar", "ter", "haver", "fazer", "dizer", "ver", "vir", "ir", "dar", "saber", "poder", "querer", "precisar", "dever", "gostar", "achar", "pensar", "sentir", "ouvir", "falar", "escrever", "ler", "estudar", "aprender", "ensinar"];
+  
+  return topic
+    .toLowerCase()
+    .replace(/[^\w\sà-ÿ]/g, "")
     .split(/\s+/)
-    .filter(w => w.length > 2);
-  
-  const freq: Record<string, number> = {};
-  for (const word of words) {
-    freq[word] = (freq[word] || 0) + 1;
-  }
-
-  return Object.entries(freq)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([word]) => word);
+    .filter(w => w.length > 2 && !stopWords.includes(w))
+    .slice(0, 5);
 }
 
-function calculateTitleScore(title: string, style: string): number {
-  let score = 50;
-  
-  // Length check (ideal 50-60 chars)
-  if (title.length >= 50 && title.length <= 65) score += 15;
-  else if (title.length > 65) score -= 10;
-  
-  // Numbers boost CTR
-  if (/\d/.test(title)) score += 10;
-  
-  // Power words
-  const powerWords = ['segredo', 'melhor', 'pior', 'erro', 'dica', 'truque', 'guia', 'completo', 'definitivo', 'shock', 'chocante', 'incrível'];
-  for (const word of powerWords) {
-    if (title.toLowerCase().includes(word)) score += 5;
-  }
-  
-  // Style specific
-  if (style === 'clickbait' && /[!?]/.test(title)) score += 10;
-  if (style === 'seo' && /como|guia|tutorial|melhor|review/.test(title.toLowerCase())) score += 10;
-  if (style === 'educational' && /aprenda|fundamentos|passo|erro/.test(title.toLowerCase())) score += 10;
-  if (style === 'viral' && /jornada|vida|mudou|segredo|viralizou/.test(title.toLowerCase())) score += 10;
-  
-  // Questions boost engagement
-  if (title.includes('?')) score += 5;
-  
-  // Brackets/parentheses
-  if (/[\[\(]/.test(title)) score += 5;
-  
-  return Math.min(100, Math.max(0, score));
-}
+function generateDataDrivenTitles(topic: string, topVideos: string[], autocomplete: string[], style: string): any[] {
+  const mainTopic = topic.charAt(0).toUpperCase() + topic.slice(1);
+  const year = new Date().getFullYear();
+  const results: any[] = [];
 
-function generateRecommendations(keyword: string, style: string): string[] {
-  const base = [
-    `Mantenha entre 50-60 caracteres para melhor CTR`,
-    `Inclua a palavra-chave principal no início: "${keyword}"`,
-    `Adicione números específicos (ex: "5 dicas", "3 erros")`,
-    `Use palavras de poder: segredo, melhor, erro, guia, definitivo`,
-    `Teste 2-3 variações no A/B testing do YouTube Studio`,
-  ];
-  
-  if (style === 'clickbait') {
-    base.push('Cuidado: não prometa o que o vídeo não entrega');
-    base.push('Use curiosidade genuína, não clickbait falso');
+  // 1. Títulos baseados nos vídeos MAIS VISTOS do nicho (o que FUNCIONA)
+  if (topVideos.length > 0) {
+    for (const vTitle of topVideos) {
+      // Extrair padrão do título popular
+      const cleanTitle = vTitle.replace(/[|#].*$/, "").trim();
+      if (cleanTitle.length > 10 && cleanTitle.length < 80) {
+        results.push({
+          title: cleanTitle,
+          style: "proven",
+          score: 95,
+          length: cleanTitle.length,
+          source: "top_video",
+          reason: "Baseado em vídeo de alta performance do nicho"
+        });
+      }
+    }
   }
-  if (style === 'seo') {
-    base.push('Otimize também a descrição com a palavra-chave nas 2 primeiras linhas');
-    base.push('Adicione timestamps e capítulos para melhor retenção');
+
+  // 2. Títulos baseados no que as pessoas REALMENTE buscam (autocomplete)
+  for (const kw of autocomplete.slice(0, 3)) {
+    const cleanKw = kw.replace(topic, "").trim();
+    if (cleanKw.length > 3) {
+      const templates = [
+        `${mainTopic}: ${cleanKw.charAt(0).toUpperCase() + cleanKw.slice(1)}`,
+        `${cleanKw.charAt(0).toUpperCase() + cleanKw.slice(1)} - ${mainTopic}`,
+        `${mainTopic} - ${cleanKw}`,
+      ];
+      for (const t of templates) {
+        if (t.length >= 40 && t.length <= 70) {
+          results.push({
+            title: t,
+            style: "search_driven",
+            score: 90,
+            length: t.length,
+            source: "autocomplete",
+            reason: `Baseado em busca real: "${kw}"`
+          });
+        }
+      }
+    }
   }
+
+  // 3. Templates otimizados por estilo (SEO, Educational, Story, List)
+  const styleTemplates = {
+    seo: [
+      `${mainTopic}: Guia Completo ${year}`,
+      `Como Entender ${mainTopic} de Forma Simples`,
+      `${mainTopic} Explicado: Tudo o Que Você Precisa Saber`,
+      `${mainTopic} para Iniciantes: Passo a Passo`,
+      `Guia Definitivo de ${mainTopic} ${year}`,
+    ],
+    educational: [
+      `Aprenda ${mainTopic} do Zero ao Avançado`,
+      `Fundamentos de ${mainTopic}: Aula Completa`,
+      `Domine ${mainTopic} em 5 Passos Simples`,
+      `Erros Comuns em ${mainTopic} e Como Evitar`,
+      `${mainTopic} Explicado para Leigos`,
+    ],
+    story: [
+      `A História de ${mainTopic} Que Poucos Conhecem`,
+      `${mainTopic}: Uma Jornada de Fé e Coragem`,
+      `O Que Aconteceu com ${mainTopic}? (História Completa)`,
+      `Lições de Vida da História de ${mainTopic}`,
+      `Por Que ${mainTopic} Ainda Importa Hoje`,
+    ],
+    list: [
+      `5 Lições Poderosas da História de ${mainTopic}`,
+      `7 Fatos Surpreendentes Sobre ${mainTopic}`,
+      `3 Momentos-Chave na História de ${mainTopic}`,
+      `10 Coisas Que Você Não Sabia Sobre ${mainTopic}`,
+      `Os 4 Pilares da História de ${mainTopic}`,
+    ],
+    viral: [
+      `O Segredo de ${mainTopic} Que Mudou Tudo`,
+      `Por Que Ninguém Te Contou Isso Sobre ${mainTopic}?`,
+      `Testei ${mainTopic} Por 30 Dias - O Resultado`,
+      `A Verdade Sobre ${mainTopic} Que Ninguém Conta`,
+      `${mainTopic}: Isso Vai Te Surpreender`,
+    ],
+  };
+
+  const templates = styleTemplates[style as keyof typeof styleTemplates] || styleTemplates.seo;
   
-  return base;
+  for (const template of templates) {
+    if (template.length >= 40 && template.length <= 70) {
+      results.push({
+        title: template,
+        style,
+        score: 75,
+        length: template.length,
+        source: "template",
+        reason: `Template otimizado para ${style}`
+      });
+    }
+  }
+
+  // Remover duplicados, ordenar por score
+  const unique = results
+    .filter((r, i, arr) => arr.findIndex(x => x.title === r.title) === i)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  return unique;
 }

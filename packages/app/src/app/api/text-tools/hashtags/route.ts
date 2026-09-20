@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-
-const popularHashtags: Record<string, string[]> = {
-  youtube: ["youtube", "youtuber", "youtubebrasil", "canal", "inscritos", "visualizacoes", "monetizacao", "algorithm", "crescimento", "dicas"],
-  tutorial: ["tutorial", "como fazer", "passo a passo", "aprenda", "dica", "truque", "facil", "rapido", "iniciante", "avancado"],
-  gaming: ["gaming", "games", "gameplay", "gamer", "jogos", "live", "streamer", "esports", "pcgaming", "console"],
-  tech: ["tecnologia", "tech", "review", "unboxing", "smartphone", "notebook", "gadget", "ia", "inteligencia artificial", "programacao"],
-  education: ["educacao", "estudo", "aprendizado", "curso", "aula", "faculdade", "vestibular", "enem", "concurso", "certificacao"],
-  lifestyle: ["lifestyle", "vlog", "rotina", "produtividade", "habitos", "minimalismo", "organizacao", "financas", "investimentos", "carreira"],
-  entertainment: ["entretenimento", "humor", "comedia", "sketch", "parodia", "reacao", "desafio", "viral", "trending", "memes"],
-};
+import { createPublicYouTubeClient } from "@/lib/youtube-api";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,39 +11,95 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { text, count = 10 } = body;
+    const { text, count = 15 } = body;
 
-    if (!text) {
-      return NextResponse.json({ error: "Texto obrigatório" }, { status: 400 });
+    if (!text || text.trim().length < 2) {
+      return NextResponse.json({ error: "Tópico muito curto" }, { status: 400 });
     }
 
-    // Extract keywords from text
-    const keywords = extractKeywords(text);
+    const yt = createPublicYouTubeClient();
+    const topic = text.trim();
+
+    // 1. Buscar vídeos reais do nicho (usando search API para vídeos)
+    let videoTags: string[] = [];
+    let videoTitles: string[] = [];
     
-    // Match with popular categories
-    let hashtags: string[] = [];
-    for (const keyword of keywords) {
-      const lower = keyword.toLowerCase();
-      for (const [category, tags] of Object.entries(popularHashtags)) {
-        if (tags.some(t => lower.includes(t) || t.includes(lower))) {
-          hashtags.push(...tags.slice(0, 3));
+    try {
+      const searchRes = await yt.searchVideos(topic, 10);
+      if (searchRes?.items?.length) {
+        const videoIds = searchRes.items
+          .map((item: any) => item.id?.videoId)
+          .filter(Boolean)
+          .slice(0, 8);
+        
+        if (videoIds.length) {
+          const videosResponse = await yt.getVideosDetails(videoIds) as any[];
+          for (const video of videosResponse) {
+            if (video.snippet?.tags) {
+              videoTags.push(...video.snippet.tags);
+            }
+            if (video.snippet?.title) {
+              videoTitles.push(video.snippet.title);
+            }
+          }
         }
       }
+    } catch (e) {
+      console.warn("YouTube search failed, using fallback:", e);
     }
 
-    // Add generic YouTube hashtags
-    hashtags.push(...["youtube", "youtuber", "brasil", "conteudo", "video"]);
+    // 2. YouTube Autocomplete / Suggest para keywords reais
+    let autocompleteKeywords: string[] = [];
+    try {
+      const suggestUrl = `https://suggestqueries.google.com/complete/search?client=youtube&ds=yt&q=${encodeURIComponent(topic)}`;
+      const suggestRes = await fetch(suggestUrl);
+      if (suggestRes.ok) {
+        const suggestData = await suggestRes.json();
+        if (suggestData[1]?.length) {
+          autocompleteKeywords = suggestData[1]
+            .map((s: any) => s[0])
+            .filter((k: string) => k.toLowerCase() !== topic.toLowerCase())
+            .slice(0, 8);
+        }
+      }
+    } catch (e) {
+      console.warn("Autocomplete failed:", e);
+    }
 
-    // Remove duplicates and limit
-    const uniqueHashtags = [...new Set(hashtags)].slice(0, count);
+    // 3. Extrair palavras-chave dos títulos dos vídeos reais
+    const titleKeywords = videoTitles
+      .flatMap(t => t.toLowerCase().split(/\s+/))
+      .filter(w => w.length > 3)
+      .filter(w => !["para", "como", "sobre", "tudo", "mais", "melhor", "novo", "ano", "dia", "video", "canal", "dicas", "guia", "completo", "definitivo", "passo", "passos", "facil", "rapido", "simples", "incrivel", "secreto", "segredo"].includes(w));
 
-    // Format with #
-    const formatted = uniqueHashtags.map(h => `#${h.replace(/\s+/g, "")}`);
+    // 4. Combinar e priorizar
+    const allTags = [
+      ...new Set([
+        ...videoTags.slice(0, 20),        // Tags reais dos vídeos (prioridade 1)
+        ...autocompleteKeywords,           // Sugestões do YouTube (prioridade 2)
+        ...titleKeywords.slice(0, 10),     // Keywords dos títulos (prioridade 3)
+        ...extractCoreKeywords(topic)      // Keywords do tópico original
+      ])
+    ];
+
+    // Filtrar e limpar
+    const cleanTags = allTags
+      .map(t => t.toLowerCase().trim())
+      .filter(t => t.length > 2 && t.length < 30)
+      .filter(t => !/^\d+$/.test(t))
+      .slice(0, count);
+
+    // 5. Gerar variações de títulos baseadas em dados reais
+    const titleSuggestions = generateRelevantTitles(topic, videoTitles, autocompleteKeywords);
 
     return NextResponse.json({
-      hashtags: formatted,
-      keywords,
-      suggestions: generateSuggestions(keywords),
+      hashtags: cleanTags.map(h => `#${h.replace(/\s+/g, "")}`),
+      tags: cleanTags, // Versão limpa sem #
+      keywords: cleanTags,
+      autocompleteKeywords,
+      titleSuggestions,
+      source: "youtube_real_data",
+      videoCount: videoTags.length > 0 ? videoTags.length : 0,
     });
   } catch (error) {
     console.error("Hashtag generation error:", error);
@@ -60,34 +107,52 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function extractKeywords(text: string): string[] {
-  // Simple keyword extraction - in production use NLP
-  const words = text.toLowerCase()
-    .replace(/[^\w\s]/g, "")
-    .split(/\s+/)
-    .filter(w => w.length > 3);
+function extractCoreKeywords(topic: string): string[] {
+  const stopWords = ["a", "o", "e", "de", "do", "da", "dos", "das", "em", "na", "no", "para", "com", "por", "como", "que", "qual", "quais", "um", "uma", "os", "as", "seu", "sua", "meu", "minha", "nosso", "nossa", "é", "são", "foi", "eram", "ser", "estar", "ter", "haver", "fazer", "dizer", "ver", "vir", "ir", "dar", "fazer", "saber", "poder", "querer", "precisar", "dever", "gostar", "achar", "pensar", "sentir", "ouvir", "falar", "escrever", "ler", "estudar", "aprender", "ensinar"];
   
-  // Count frequency
-  const freq: Record<string, number> = {};
-  for (const word of words) {
-    freq[word] = (freq[word] || 0) + 1;
-  }
-
-  // Return top keywords
-  return Object.entries(freq)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([word]) => word);
+  return topic
+    .toLowerCase()
+    .replace(/[^\w\sà-ÿ]/g, "")
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.includes(w))
+    .slice(0, 5);
 }
 
-function generateSuggestions(keywords: string[]): string[] {
-  const suggestions: string[] = [];
-  for (const keyword of keywords.slice(0, 5)) {
-    suggestions.push(`${keyword} dicas`);
-    suggestions.push(`${keyword} tutorial`);
-    suggestions.push(`${keyword} 2024`);
-    suggestions.push(`como ${keyword}`);
-    suggestions.push(`melhor ${keyword}`);
+function generateRelevantTitles(topic: string, videoTitles: string[], autocompleteKeywords: string[]): string[] {
+  const titles: string[] = [];
+  const year = new Date().getFullYear();
+  const mainTopic = topic.charAt(0).toUpperCase() + topic.slice(1);
+  
+  // Baseado nos títulos reais dos vídeos encontrados
+  if (videoTitles.length > 0) {
+    const patterns = [
+      `${mainTopic}: ${videoTitles[0].split(":")[0] || "Análise Completa"}`,
+      `${mainTopic} - ${videoTitles[0].split("|")[0]?.trim() || "Tudo Sobre"}`,
+    ];
+    titles.push(...patterns);
   }
-  return [...new Set(suggestions)].slice(0, 15);
+
+  // Baseado em autocomplete do YouTube (o que as pessoas REALMENTE buscam)
+  if (autocompleteKeywords.length > 0) {
+    for (const kw of autocompleteKeywords.slice(0, 3)) {
+      titles.push(`${mainTopic}: ${kw.charAt(0).toUpperCase() + kw.slice(1)}`);
+      titles.push(`${kw.charAt(0).toUpperCase() + kw.slice(1)} - ${mainTopic}`);
+    }
+  }
+
+  // Templates otimizados para YouTube (baseados no que funciona)
+  const templates = [
+    `${mainTopic}: Guia Completo ${year}`,
+    `Como Entender ${mainTopic} de Forma Simples`,
+    `${mainTopic} Explicado: Tudo o Que Você Precisa Saber`,
+    `5 Pontos-Chave Sobre ${mainTopic}`,
+    `O Que Ninguém Te Conta Sobre ${mainTopic}`,
+    `${mainTopic} para Iniciantes: Passo a Passo`,
+    `Erros Comuns ao Estudar ${mainTopic} e Como Evitar`,
+    `${mainTopic} - Análise Profunda e Reflexão`,
+    `Por Que ${mainTopic} Importa Hoje?`,
+    `${year}: O Guia Definitivo de ${mainTopic}`,
+  ];
+
+  return [...new Set([...titles, ...templates])].slice(0, 10);
 }
