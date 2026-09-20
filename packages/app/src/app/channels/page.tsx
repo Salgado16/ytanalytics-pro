@@ -115,38 +115,6 @@ export default function ChannelsPage() {
     }
   }, []);
 
-  // Auto-conecta canal se voltou do OAuth Google (callback)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("callbackUrl") === "/channels" || params.get("connected") === "true") {
-      // Limpa a URL sem recarregar
-      window.history.replaceState({}, document.title, window.location.pathname);
-      // Tenta conectar
-      connectChannel();
-    }
-  }, []);
-
-  // Auto-conecta se veio do callback OAuth
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("connected") === "true" && channels.length === 0) {
-      connectChannel();
-    }
-  }, [channels.length, connectChannel]);
-
-  // Carrega stats de todos os canais que não têm
-  useEffect(() => {
-    channels.forEach(channel => {
-      if (!channel.stats && !loadingStats.has(channel.id)) {
-        loadChannelStats(channel.id);
-      }
-    });
-  }, [channels, loadingStats, loadChannelStats]);
-
-  useEffect(() => {
-    loadChannels();
-  }, [loadChannels]);
-
   const connectChannel = async () => {
     setConnecting(true);
     setError(null);
@@ -168,6 +136,27 @@ export default function ChannelsPage() {
       setConnecting(false);
     }
   };
+
+  // Auto-conecta se veio do callback OAuth
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected") === "true" && channels.length === 0) {
+      connectChannel();
+    }
+  }, [channels.length, connectChannel]);
+
+  // Carrega stats de todos os canais que não têm
+  useEffect(() => {
+    channels.forEach(channel => {
+      if (!channel.stats && !loadingStats.has(channel.id)) {
+        loadChannelStats(channel.id);
+      }
+    });
+  }, [channels, loadingStats, loadChannelStats]);
+
+  useEffect(() => {
+    loadChannels();
+  }, [loadChannels]);
 
   const disconnectChannel = async (id: string) => {
     setError(null);
