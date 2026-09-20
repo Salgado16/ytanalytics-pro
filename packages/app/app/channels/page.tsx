@@ -1,9 +1,26 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { DashboardLayout } from '@/components/dashboard-layout';
 import { MOCK_CHANNELS, ChannelData } from '@/lib/mock-data';
-import { Tv, Plus, CheckCircle2 } from 'lucide-react';
+import { Tv, Plus, CheckCircle2, ArrowLeft } from 'lucide-react';
+
+export type { ChannelData };
+
+export interface VideoData {
+  id: string;
+  title: string;
+  thumbnail?: string;
+  views: number;
+  likes: number;
+  comments: number;
+  publishedAt: string;
+  duration?: string;
+  ctr?: number;
+  retention?: number;
+}
+
 
 export default function ChannelsPage() {
   const [channels, setChannels] = useState<ChannelData[]>([]);
@@ -57,6 +74,13 @@ export default function ChannelsPage() {
             <p className="text-sm text-slate-400 mt-1">Gerencie seus canais conectados e acompanhe métricas consolidadas em tempo real.</p>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium px-4 py-2.5 rounded-xl text-sm transition-all hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Voltar ao Painel</span>
+            </Link>
             <button
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-red-600/20"
