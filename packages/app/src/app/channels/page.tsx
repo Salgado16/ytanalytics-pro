@@ -126,11 +126,10 @@ export default function ChannelsPage() {
     }
   }, []);
 
-  // Auto-conecta canal se voltou do OAuth Google
+  // Auto-conecta se veio do callback OAuth
   useEffect(() => {
-    const justAuthed = sessionStorage.getItem("yt_just_authed");
-    if (justAuthed && channels.length === 0) {
-      sessionStorage.removeItem("yt_just_authed");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected") === "true" && channels.length === 0) {
       connectChannel();
     }
   }, [channels.length, connectChannel]);
@@ -156,8 +155,7 @@ export default function ChannelsPage() {
       const json = await res.json();
       if (!res.ok) {
         if (res.status === 401) {
-          sessionStorage.setItem("yt_just_authed", "true");
-          window.location.href = "/api/auth/signin/google?callbackUrl=/channels";
+          window.location.href = "/api/auth/callback";
           return;
         }
         setError(json.error || "Erro ao conectar canal");
