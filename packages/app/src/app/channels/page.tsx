@@ -115,6 +115,26 @@ export default function ChannelsPage() {
     }
   }, []);
 
+  // Auto-conecta canal se voltou do OAuth Google (callback)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("callbackUrl") === "/channels" || params.get("connected") === "true") {
+      // Limpa a URL sem recarregar
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Tenta conectar
+      connectChannel();
+    }
+  }, []);
+
+  // Auto-conecta canal se voltou do OAuth Google
+  useEffect(() => {
+    const justAuthed = sessionStorage.getItem("yt_just_authed");
+    if (justAuthed && channels.length === 0) {
+      sessionStorage.removeItem("yt_just_authed");
+      connectChannel();
+    }
+  }, [channels.length, connectChannel]);
+
   // Carrega stats de todos os canais que não têm
   useEffect(() => {
     channels.forEach(channel => {
@@ -128,9 +148,27 @@ export default function ChannelsPage() {
     loadChannels();
   }, [loadChannels]);
 
-  const connectChannel = () => {
-    // Redireciona para login Google OAuth com os scopes do YouTube
-    window.location.href = "/api/auth/signin/google?callbackUrl=/channels";
+  const connectChannel = async () => {
+    setConnecting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/channels/connect", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          sessionStorage.setItem("yt_just_authed", "true");
+          window.location.href = "/api/auth/signin/google?callbackUrl=/channels";
+          return;
+        }
+        setError(json.error || "Erro ao conectar canal");
+      } else {
+        await loadChannels();
+      }
+    } catch (e: any) {
+      setError(e.message || "Erro ao conectar canal");
+    } finally {
+      setConnecting(false);
+    }
   };
 
   const disconnectChannel = async (id: string) => {
