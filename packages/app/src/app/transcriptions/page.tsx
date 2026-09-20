@@ -48,6 +48,11 @@ export default function TranscriptionsPage() {
 
   const fetchCaptions = useCallback(async () => {
     if (!videoId.trim()) return;
+    // Valida se parece com um videoId válido (11 chars alfanuméricos, -, _)
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId.trim())) {
+      setError("ID do vídeo inválido. Use um ID de 11 caracteres ou uma URL válida do YouTube.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -127,7 +132,23 @@ export default function TranscriptionsPage() {
             <Input
               placeholder="Ex: dQw4w9WgXcQ ou https://youtube.com/watch?v=dQw4w9WgXcQ"
               value={videoId}
-              onChange={(e) => setVideoId(e.target.value.replace(/.*[?&]v=([^&]+).*/, "$1"))}
+              onChange={(e) => {
+                const input = e.target.value;
+                // Extrai videoId de várias formas de URL do YouTube
+                const patterns = [
+                  /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([^&\n?#]+)/,
+                  /^([a-zA-Z0-9_-]{11})$/ // ID direto
+                ];
+                let extracted = input;
+                for (const pattern of patterns) {
+                  const match = input.match(pattern);
+                  if (match) {
+                    extracted = match[1];
+                    break;
+                  }
+                }
+                setVideoId(extracted);
+              }}
               className="flex-1"
             />
             <Button onClick={fetchCaptions} disabled={loading || !videoId.trim()}>
