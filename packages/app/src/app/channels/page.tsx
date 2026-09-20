@@ -96,22 +96,9 @@ export default function ChannelsPage() {
     loadChannels();
   }, [loadChannels]);
 
-  const connectChannel = async () => {
-    setConnecting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/channels/connect", { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error || "Erro ao conectar canal");
-      } else {
-        await loadChannels();
-      }
-    } catch (e: any) {
-      setError(e.message || "Erro ao conectar canal");
-    } finally {
-      setConnecting(false);
-    }
+  const connectChannel = () => {
+    // Redireciona para login Google OAuth com os scopes do YouTube
+    window.location.href = "/api/auth/signin/google?callbackUrl=/channels";
   };
 
   const disconnectChannel = async (id: string) => {
