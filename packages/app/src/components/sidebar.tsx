@@ -18,8 +18,22 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
+  Sun,
+  Moon,
+  Monitor,
+  Globe,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui";
+import { Separator } from "@/components/ui";
+import { useThemeLanguage } from "@/context/ThemeLanguageContext";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -36,8 +50,21 @@ const navigation = [
   { name: "Configurações", href: "/settings", icon: Settings },
 ];
 
+const themes = [
+  { value: "light" as const, label: "Claro", icon: Sun },
+  { value: "dark" as const, label: "Escuro", icon: Moon },
+  { value: "system" as const, label: "Sistema", icon: Monitor },
+];
+
+const languages = [
+  { value: "pt-BR" as const, label: "Português (BR)", flag: "🇧🇷" },
+  { value: "en" as const, label: "English", flag: "🇺🇸" },
+  { value: "es" as const, label: "Español", flag: "🇪🇸" },
+];
+
 export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; onToggle: () => void }) {
   const pathname = usePathname();
+  const { theme, setTheme, language, setLanguage } = useThemeLanguage();
 
   return (
     <aside
@@ -91,7 +118,7 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
 
         <div className="border-t p-3">
           {!collapsed && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Atalhos
               </p>
@@ -113,6 +140,114 @@ export function Sidebar({ collapsed = false, onToggle }: { collapsed?: boolean; 
                   Transcrever
                 </Button>
               </div>
+
+              <Separator />
+
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Aparência
+              </p>
+              <div className="space-y-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const currentTheme = themes.find((t) => t.value === theme);
+                          return currentTheme ? <currentTheme.icon className="h-4 w-4" /> : <Monitor className="h-4 w-4" />;
+                        })()}
+                        <span className="flex-1 text-left capitalize">{themes.find((t) => t.value === theme)?.label}</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40" align="end">
+                    {themes.map((t) => (
+                      <DropdownMenuItem
+                        key={t.value}
+                        onClick={() => setTheme(t.value)}
+                        className={cn("flex items-center gap-2", theme === t.value && "bg-accent")}
+                      >
+                        <t.icon className="h-4 w-4" />
+                        <span>{t.label}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{languages.find((l) => l.value === language)?.flag}</span>
+                        <span className="flex-1 text-left">{languages.find((l) => l.value === language)?.label}</span>
+                      </div>
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-44" align="end">
+                    {languages.map((l) => (
+                      <DropdownMenuItem
+                        key={l.value}
+                        onClick={() => setLanguage(l.value)}
+                        className={cn("flex items-center gap-2", language === l.value && "bg-accent")}
+                      >
+                        <span>{l.flag}</span>
+                        <span>{l.label}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          )}
+          {collapsed && (
+            <div className="flex flex-col items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Tema">
+                    {theme === "dark" ? <Moon className="h-4 w-4" /> : theme === "light" ? <Sun className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {themes.map((t) => (
+                    <DropdownMenuItem
+                      key={t.value}
+                      onClick={() => setTheme(t.value)}
+                      className={cn("flex items-center gap-2", theme === t.value && "bg-accent")}
+                    >
+                      <t.icon className="h-4 w-4" />
+                      <span>{t.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" title="Idioma">
+                    <Globe className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {languages.map((l) => (
+                    <DropdownMenuItem
+                      key={l.value}
+                      onClick={() => setLanguage(l.value)}
+                      className={cn("flex items-center gap-2", language === l.value && "bg-accent")}
+                    >
+                      <span>{l.flag}</span>
+                      <span>{l.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
