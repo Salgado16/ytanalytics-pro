@@ -199,14 +199,13 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {loading && (
-            <Button variant="outline" disabled className="btn-sm">
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              Carregando...
-            </Button>
-          )}
+          <Button
+            variant="outline" disabled className="btn-sm" aria-label="Atualizando dados">
+            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            Carregando...
+          </Button>
           {!loading && (
-            <Button variant="outline" onClick={loadStats} className="btn-sm">
+            <Button variant="outline" onClick={loadStats} className="btn-sm" aria-label="Atualizar dados">
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar
             </Button>

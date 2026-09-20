@@ -38,6 +38,7 @@ function SignInContent() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
             <Youtube className="h-8 w-8 text-primary" />
           </div>
+          <h1 className="sr-only">Login - YouTube Analytics Suite</h1>
           <CardTitle>YouTube Analytics Suite</CardTitle>
           <CardDescription>
             Faça login para acessar seu dashboard de analytics

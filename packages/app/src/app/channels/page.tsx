@@ -216,11 +216,11 @@ export default function ChannelsPage() {
           <p className="page-subtitle">Gerencie seus canais conectados e acompanhe métricas reais</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={loadChannels} disabled={loading} className="btn-sm">
+          <Button variant="outline" onClick={loadChannels} disabled={loading} className="btn-sm" aria-label="Atualizar lista de canais">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
-          <Button onClick={connectChannel} disabled={connecting} className="btn-primary">
+          <Button onClick={connectChannel} disabled={connecting} className="btn-primary" aria-label={connecting ? "Conectando canal" : "Conectar novo canal do YouTube"}>
             {connecting ? (
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
             ) : (
