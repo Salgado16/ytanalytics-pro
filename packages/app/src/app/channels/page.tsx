@@ -76,6 +76,7 @@ export default function ChannelsPage() {
   const [expandedChannels, setExpandedChannels] = useState<Set<string>>(new Set());
   const [channelVideos, setChannelVideos] = useState<Record<string, VideoData[]>>({});
   const [loadingVideos, setLoadingVideos] = useState<Set<string>>(new Set());
+  const [loadingStats, setLoadingStats] = useState<Set<string>>(new Set());
 
   const loadChannels = useCallback(async () => {
     setLoading(true);
@@ -91,6 +92,37 @@ export default function ChannelsPage() {
       setLoading(false);
     }
   }, []);
+
+  // Carrega stats de um canal específico
+  const loadChannelStats = useCallback(async (channelId: string) => {
+    setLoadingStats(prev => new Set(prev).add(channelId));
+    try {
+      const res = await fetch(`/api/channels/${channelId}/stats`, { cache: "no-store" });
+      if (res.ok) {
+        const stats = await res.json();
+        setChannels(prev => prev.map(c => 
+          c.id === channelId ? { ...c, stats } : c
+        ));
+      }
+    } catch (e) {
+      console.error("Error loading channel stats:", e);
+    } finally {
+      setLoadingStats(prev => {
+        const next = new Set(prev);
+        next.delete(channelId);
+        return next;
+      });
+    }
+  }, []);
+
+  // Carrega stats de todos os canais que não têm
+  useEffect(() => {
+    channels.forEach(channel => {
+      if (!channel.stats && !loadingStats.has(channel.id)) {
+        loadChannelStats(channel.id);
+      }
+    });
+  }, [channels, loadingStats, loadChannelStats]);
 
   useEffect(() => {
     loadChannels();

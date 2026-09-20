@@ -18,49 +18,21 @@ export async function GET(request: NextRequest) {
       orderBy: [{ isPrimary: "desc" }, { createdAt: "desc" }],
     });
 
-    const result = await Promise.all(
-      channels.map(async (channel) => {
-        const stats =
-          channel.accessToken
-            ? await fetchChannelStats(channel.accessToken, channel.channelId)
-            : undefined;
-        return {
-          id: channel.id,
-          channelId: channel.channelId,
-          channelTitle: channel.channelTitle,
-          channelHandle: channel.channelHandle,
-          isPrimary: channel.isPrimary,
-          createdAt: channel.createdAt.toISOString(),
-          stats,
-        };
-      })
-    );
+    // Retorna canais básicos primeiro (rápido), stats em background se tiver token
+    const result = channels.map((channel) => ({
+      id: channel.id,
+      channelId: channel.channelId,
+      channelTitle: channel.channelTitle,
+      channelHandle: channel.channelHandle,
+      isPrimary: channel.isPrimary,
+      createdAt: channel.createdAt.toISOString(),
+      stats: undefined, // stats carregados separadamente via /api/channels/[id]/stats
+    }));
 
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching channels:", error);
     return NextResponse.json({ error: "Erro ao buscar canais" }, { status: 500 });
-  }
-}
-
-async function fetchChannelStats(accessToken: string, channelId: string) {
-  try {
-    const yt = new YouTubeApiClient(accessToken);
-    const channel = (await yt.getChannelById(channelId)) as any;
-    if (!channel) return undefined;
-
-    const stats = channel.statistics || {};
-    return {
-      subscribers: parseInt(stats.subscriberCount || "0", 10),
-      totalViews: parseInt(stats.viewCount || "0", 10),
-      videos: parseInt(stats.videoCount || "0", 10),
-      thumbnail:
-        channel.snippet?.thumbnails?.medium?.url ||
-        channel.snippet?.thumbnails?.default?.url,
-    };
-  } catch (error) {
-    console.error("Error fetching channel stats:", error);
-    return undefined;
   }
 }
 

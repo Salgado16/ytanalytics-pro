@@ -4,6 +4,9 @@ import { Channel, Video, ChannelAnalytics, VideoAnalytics, NicheChannel, ViralVi
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const YOUTUBE_ANALYTICS_BASE = "https://youtubeanalytics.googleapis.com/v2";
 
+// Timeout de 8 segundos para evitar 504 no Vercel (max 30s)
+const TIMEOUT_MS = 8000;
+
 export class YouTubeApiClient {
   private client: AxiosInstance;
   private analyticsClient: AxiosInstance;
@@ -15,10 +18,12 @@ export class YouTubeApiClient {
       baseURL: YOUTUBE_API_BASE,
       headers: accessToken && !apiKey ? { Authorization: `Bearer ${accessToken}` } : {},
       params: apiKey ? { key: apiKey } : undefined,
+      timeout: TIMEOUT_MS,
     });
     this.analyticsClient = axios.create({
       baseURL: YOUTUBE_ANALYTICS_BASE,
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      timeout: TIMEOUT_MS,
     });
   }
 
