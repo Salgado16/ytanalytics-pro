@@ -83,7 +83,14 @@ export default function ChannelsPage() {
     setError(null);
     try {
       const res = await fetch("/api/channels", { cache: "no-store" });
-      if (!res.ok) throw new Error("Erro ao carregar canais");
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Token expirado ou inválido - redirecionar para login
+          window.location.href = "/auth/signin?callbackUrl=/channels";
+          return;
+        }
+        throw new Error("Erro ao carregar canais");
+      }
       const data = await res.json();
       setChannels(data || []);
     } catch (e: any) {

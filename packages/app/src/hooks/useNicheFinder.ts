@@ -74,7 +74,13 @@ export function useNicheFinder() {
         sortBy: filters.sortBy,
       });
       const res = await fetch(`/api/niche/channels?${params}`);
-      if (!res.ok) throw new Error("Erro ao buscar canais em alta");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/niche";
+          return;
+        }
+        throw new Error("Erro ao buscar canais em alta");
+      }
       const data = await res.json();
       setTrendingChannels(data);
     } catch (err) {
@@ -97,7 +103,13 @@ export function useNicheFinder() {
         sortBy: filters.sortBy,
       });
       const res = await fetch(`/api/niche/channels?${params}`);
-      if (!res.ok) throw new Error("Erro ao buscar canais subindo");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/niche";
+          return;
+        }
+        throw new Error("Erro ao buscar canais subindo");
+      }
       const data = await res.json();
       setRisingChannels(data);
     } catch (err) {
@@ -120,7 +132,13 @@ export function useNicheFinder() {
         sortBy: filters.sortBy,
       });
       const res = await fetch(`/api/niche/channels?${params}`);
-      if (!res.ok) throw new Error("Erro ao buscar canais novos");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/niche";
+          return;
+        }
+        throw new Error("Erro ao buscar canais novos");
+      }
       const data = await res.json();
       setNewChannels(data);
     } catch (err) {
@@ -139,7 +157,13 @@ export function useNicheFinder() {
         limit: "50",
       });
       const res = await fetch(`/api/niche/viral-videos?${params}`);
-      if (!res.ok) throw new Error("Erro ao buscar vídeos virais");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/niche";
+          return;
+        }
+        throw new Error("Erro ao buscar vídeos virais");
+      }
       const data = await res.json();
       setViralVideos(data);
     } catch (err) {
@@ -154,7 +178,13 @@ export function useNicheFinder() {
     setError(null);
     try {
       const res = await fetch(`/api/niche/search?q=${encodeURIComponent(query)}`);
-      if (!res.ok) throw new Error("Erro ao buscar nicho");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/niche";
+          return [];
+        }
+        throw new Error("Erro ao buscar nicho");
+      }
       return await res.json();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
@@ -169,7 +199,13 @@ export function useNicheFinder() {
     setError(null);
     try {
       const res = await fetch(`/api/niche/analyze/${channelId}`);
-      if (!res.ok) throw new Error("Erro ao analisar canal");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/niche";
+          return null;
+        }
+        throw new Error("Erro ao analisar canal");
+      }
       return await res.json();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");

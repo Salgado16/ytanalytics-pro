@@ -41,7 +41,13 @@ export function useIdeasBoard() {
     setError(null);
     try {
       const res = await fetch("/api/ideas");
-      if (!res.ok) throw new Error("Erro ao buscar ideias");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/ideas";
+          return;
+        }
+        throw new Error("Erro ao buscar ideias");
+      }
       const data = await res.json();
       setIdeas(data);
     } catch (err) {
@@ -60,7 +66,13 @@ export function useIdeasBoard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(idea),
       });
-      if (!res.ok) throw new Error("Erro ao criar ideia");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/ideas";
+          return null;
+        }
+        throw new Error("Erro ao criar ideia");
+      }
       const data = await res.json();
       setIdeas((prev) => [...prev, data]);
       return data;
@@ -81,7 +93,13 @@ export function useIdeasBoard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
-      if (!res.ok) throw new Error("Erro ao atualizar ideia");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/ideas";
+          return null;
+        }
+        throw new Error("Erro ao atualizar ideia");
+      }
       const data = await res.json();
       setIdeas((prev) => prev.map((i) => (i.id === id ? data : i)));
       return data;
@@ -98,7 +116,13 @@ export function useIdeasBoard() {
     setError(null);
     try {
       const res = await fetch(`/api/ideas/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Erro ao excluir ideia");
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/ideas";
+          return;
+        }
+        throw new Error("Erro ao excluir ideia");
+      }
       setIdeas((prev) => prev.filter((i) => i.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");

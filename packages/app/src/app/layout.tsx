@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   title: "YouTube Analytics Suite",
   description: "Dashboard completo para criadores de conteúdo do YouTube",
   keywords: ["YouTube", "analytics", "creator", "dashboard", "growth", "viral", "niche"],
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -18,6 +23,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/favicon.svg" />
+        <link rel="apple-touch-icon" href="/favicon.svg" />
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <Providers>{children}</Providers>
       </body>

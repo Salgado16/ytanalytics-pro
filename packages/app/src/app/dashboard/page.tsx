@@ -110,6 +110,10 @@ export default function DashboardPage() {
       const res = await fetch("/api/dashboard/stats", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/auth/signin?callbackUrl=/dashboard";
+          return;
+        }
         setError(json.error || "Erro ao carregar dados do canal");
         setData(null);
       } else {
