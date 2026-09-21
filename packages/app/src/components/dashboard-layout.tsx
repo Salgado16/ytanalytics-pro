@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, 
   Tv, 
@@ -16,17 +16,29 @@ import {
   Bell, 
   User, 
   Menu, 
-  X 
+  X,
+  ChevronDown,
+  Check,
+  Youtube
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
+const mockChannels = [
+  { id: '1', name: 'Tech & Futuro Brasil', avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150' },
+  { id: '2', name: 'Cortes de PodCast Pro', avatar: 'https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=150' },
+];
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [channelMenuOpen, setChannelMenuOpen] = useState(false);
+  const [activeChannel, setActiveChannel] = useState(mockChannels[0]);
 
   const navigation = [
     { name: 'Painel Geral', href: '/dashboard', icon: LayoutDashboard },
@@ -39,18 +51,38 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Configurações', href: '/settings', icon: Settings },
   ];
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1200);
+    toast.loading('Atualizando dados dos canais...', { id: 'refresh' });
+    
+    try {
+      // Simula chamada para APIs
+      await Promise.all([
+        fetch('/api/dashboard/stats').catch(() => null),
+        fetch('/api/channels').catch(() => null),
+      ]);
+      toast.success('Dados atualizados com sucesso!', { id: 'refresh' });
+    } catch {
+      toast.error('Erro ao atualizar. Modo demonstração ativo.', { id: 'refresh' });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  const handleChannelSwitch = (channel: typeof mockChannels[0]) => {
+    setActiveChannel(channel);
+    setChannelMenuOpen(false);
+    toast.success(`Canal alterado para ${channel.name}`);
+    // Aqui você faria a troca real de contexto do canal
   };
 
   return (
     <div className="min-h-screen bg-[#0A0A0C] text-slate-100 flex flex-col md:flex-row font-sans">
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex flex-col w-64 border-r border-slate-800/80 bg-[#111115] p-4 sticky top-0 h-screen">
-        <div className="flex items-center gap-3 px-2 py-4 mb-6 border-b border-slate-800/60">
-          <div className="h-10 w-10 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shadow-lg shadow-red-500/10">
-            <Tv className="h-6 w-6" />
+        <div className="flex items-center gap-3 px-2 py-4 mb-6 border-b border-slate-800/60 animate-slide-down">
+          <div className="h-10 w-10 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500 shadow-lg shadow-red-500/10 animate-pulse-glow">
+            <Youtube className="h-6 w-6" />
           </div>
           <div>
             <h2 className="font-bold text-base tracking-tight leading-none text-white">YTAnalytics <span className="text-red-500 text-xs px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20">PRO</span></h2>
@@ -58,28 +90,26 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1.5">
-          {navigation.map((item) => {
+        <nav className="flex-1 space-y-1.5" role="navigation" aria-label="Menu principal">
+          {navigation.map((item, index) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  isActive
-                    ? 'bg-red-600 text-white shadow-md shadow-red-600/20 font-semibold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                }`}
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all animate-slide-up ${index + 1}`}
+                style={{ animationDelay: `${index * 50}ms` }}
+                aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`} aria-hidden="true" />
                 {item.name}
               </Link>
             );
           })}
         </nav>
 
-        <div className="pt-4 border-t border-slate-800/60">
+        <div className="pt-4 border-t border-slate-800/60 animate-slide-up" style={{ animationDelay: '300ms' }}>
           <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3 flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-300">
               <User className="h-4 w-4" />
@@ -95,11 +125,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 pb-16 md:pb-0">
         {/* Top Header */}
-        <header className="h-16 border-b border-slate-800/80 bg-[#111115]/80 backdrop-blur-md sticky top-0 z-30 px-4 md:px-8 flex items-center justify-between">
+        <header className="h-16 border-b border-slate-800/80 bg-[#111115]/80 backdrop-blur-md sticky top-0 z-30 px-4 md:px-8 flex items-center justify-between animate-slide-down">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg bg-slate-800 text-slate-300"
+              aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -107,39 +138,73 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                window.location.href = '/auth/signin';
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-all shadow-md shadow-red-600/20"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              <span>Entrar com Google</span>
-            </button>
+            {/* Channel Switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setChannelMenuOpen(!channelMenuOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-200 text-xs font-medium hover:bg-slate-800 transition-colors"
+                aria-label="Alternar canal"
+                aria-expanded={channelMenuOpen}
+              >
+                <div className="h-6 w-6 rounded-full border border-slate-700 overflow-hidden flex items-center justify-center">
+                  <img 
+                    src={activeChannel.avatar} 
+                    alt={activeChannel.name} 
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <span className="hidden sm:block truncate max-w-[120px]">{activeChannel.name}</span>
+                <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${channelMenuOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {channelMenuOpen && (
+                <div className="absolute right-0 mt-1.5 w-56 bg-[#111115] border border-slate-800 rounded-xl shadow-xl shadow-black/50 py-1 animate-slide-down z-50">
+                  {mockChannels.map((channel) => (
+                    <button
+                      key={channel.id}
+                      onClick={() => handleChannelSwitch(channel)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-sm transition-colors ${
+                        activeChannel.id === channel.id
+                          ? 'bg-red-600/10 text-red-400'
+                          : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+                      }`}
+                    >
+                      <img 
+                        src={channel.avatar} 
+                        alt={channel.name} 
+                        className="h-7 w-7 rounded-full border border-slate-700 object-cover"
+                      />
+                      <span className="truncate flex-1">{channel.name}</span>
+                      {activeChannel.id === channel.id && <Check className="h-4 w-4 text-red-500" />}
+                    </button>
+                  ))}
+                  <hr className="border-slate-800 my-1" />
+                  <button className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800/50 transition-colors">
+                    <Youtube className="h-4 w-4" />
+                    <span>Conectar novo canal</span>
+                  </button>
+                </div>
+              )}
+            </div>
 
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-200 text-xs font-medium hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-200 text-xs font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={`h-3.5 w-3.5 text-slate-400 ${isRefreshing ? 'animate-spin text-red-500' : ''}`} />
               <span>{isRefreshing ? 'Atualizando...' : 'Atualizar Dados'}</span>
             </button>
 
-            <button className="p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition-colors relative">
+            <button className="p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-white transition-colors relative" aria-label="Notificações">
               <Bell className="h-4 w-4" />
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500"></span>
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
             </button>
           </div>
         </header>
 
         {/* Dynamic Page Content */}
-        <main className="p-4 md:p-8 flex-1">
+        <main className="p-4 md:p-8 flex-1 animate-fade-in">
           {children}
         </main>
       </div>
